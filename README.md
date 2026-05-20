@@ -648,38 +648,87 @@ Response:
 }
 ```
 
-## 27. Environment Setup
+## 27. Environment Setup (Backend + Frontend)
 
-Backend `.env` should include:
+Use the provided `.env.example` files as base templates.
 
-- `NODE_ENV`
-- `PORT`
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_NAME`
-- `JWT_SECRET`
-- `JWT_ACCESS_EXPIRES`
-- `JWT_REFRESH_EXPIRES`
-- `CORS_ORIGIN`
+### Backend `.env` (file: `backend/.env`)
 
-Frontend `.env` should include:
+```env
+NODE_ENV=development
+PORT=5000
 
-- `VITE_API_URL`
-- `VITE_SOCKET_URL`
-- `VITE_APP_NAME`
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_postgres_password
+DB_NAME=airport_emergency
 
-## 28. Local Setup Steps
+JWT_SECRET=replace_with_long_random_secret
+JWT_ACCESS_EXPIRES=15m
+JWT_REFRESH_EXPIRES=7d
 
-1. Install dependencies:
-   - `cd backend && npm install`
-   - `cd frontend && npm install`
-2. Configure environment files from `.env.example`.
+CORS_ORIGIN=http://localhost:5173
+
+ADMIN_EMAIL=superadmin@airport.local
+ADMIN_PASSWORD=ChangeMe123!
+```
+
+### Frontend `.env` (file: `frontend/.env`)
+
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_SOCKET_URL=http://localhost:5000
+VITE_APP_NAME=Airport Emergency Management
+```
+
+### Notes
+
+- Do not add spaces around `=` in `.env` files.
+- Restart backend/frontend after changing environment variables.
+- Keep real secrets only in local `.env`, never in git.
+
+## 28. Local Setup Steps (Quick Start)
+
+1. Install dependencies.
+
+```bash
+cd backend
+npm install
+cd ../frontend
+npm install
+```
+
+2. Create environment files from templates.
+
+```bash
+cd backend
+copy .env.example .env
+cd ../frontend
+copy .env.example .env
+```
+
 3. Create PostgreSQL database.
-4. Run backend: `cd backend && npm run dev`
-5. Run frontend: `cd frontend && npm run dev`
-6. Open Vite URL and test login + health API.
+
+```sql
+CREATE DATABASE airport_emergency;
+```
+
+4. Start backend.
+
+```bash
+cd backend
+npm run dev
+```
+
+5. Start frontend (new terminal).
+
+```bash
+cd frontend
+npm run dev
+```
+
+6. Open the Vite URL shown in terminal (usually `http://localhost:5173`) and verify API health on `http://localhost:5000/api/health`.
 
 ---
 
