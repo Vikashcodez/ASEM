@@ -94,6 +94,7 @@ export const getProfile = async (req, res) => {
             `SELECT e.id,
                     e.email,
                     CONCAT(e.first_name, ' ', e.last_name) AS name,
+                    e.adress AS address,
                     NULL::text AS position,
                     NULL::text AS department,
                     NULL::numeric AS salary,
