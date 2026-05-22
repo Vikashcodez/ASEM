@@ -12,6 +12,34 @@ export const login = async (req, res) => {
 
         const { email, password } = req.body;
 
+        // Allow admin login directly from environment credentials.
+        if (
+            email === process.env.ADMIN_EMAIL &&
+            password === process.env.ADMIN_PASSWORD
+        ) {
+            const token = jwt.sign(
+                {
+                    id: 0,
+                    email: process.env.ADMIN_EMAIL,
+                    role: 'admin',
+                    name: 'Super Admin'
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            return res.json({
+                message: 'Login successful',
+                token,
+                user: {
+                    id: 0,
+                    email: process.env.ADMIN_EMAIL,
+                    name: 'Super Admin',
+                    role: 'admin'
+                }
+            });
+        }
+
         const result = await pool.query(
             'SELECT * FROM employees WHERE email = $1',
             [email]
