@@ -5,6 +5,7 @@ import { createTables, testConnection } from './src/config/database.js';
 import authRoutes from './src/routes/auth.Routes.js';
 import employeeRoutes from './src/routes/employee.Routes.js';
 import RolesRouter from './src/routes/roles.Routes.js';
+import terminalsRouter from './src/routes/terminals.Routes.js';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', employeeRoutes);
 app.use('/api/roles', RolesRouter);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/terminals', terminalsRouter);
 
 // Health check route
 app.get('/api/health', (req, res) => {
