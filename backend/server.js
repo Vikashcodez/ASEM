@@ -8,6 +8,7 @@ import RolesRouter from './src/routes/roles.Routes.js';
 import terminalsRouter from './src/routes/terminals.Routes.js';
 import blocksRouter from './src/routes/blocks.Routes.js';
 import floorsRouter from './src/routes/floors.Routes.js';
+import roomsRouter from './src/routes/rooms.Routes.js';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/terminals', terminalsRouter);
 app.use('/api/blocks', blocksRouter);
 app.use('/api/floors', floorsRouter);
+app.use('/api/rooms', roomsRouter);
 
 // Health check route
 app.get('/api/health', (req, res) => {
