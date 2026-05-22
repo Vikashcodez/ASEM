@@ -30,16 +30,28 @@ const createTables = async () => {
 
         // Create employees table
         await client.query(`
+            CREATE TABLE IF NOT EXISTS Roles (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(50) UNIQUE NOT NULL
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+
+        await client.query(`
             CREATE TABLE IF NOT EXISTS employees (
                 id SERIAL PRIMARY KEY,
+                role_id INTEGER REFERENCES Roles(id) ON DELETE SET NULL,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                contact_number VARCHAR(20),
                 email VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                name VARCHAR(255) NOT NULL,
-                position VARCHAR(255),
-                department VARCHAR(255),
-                salary DECIMAL(10, 2),
+                adress JSONB,
                 join_date DATE,
-                role user_role DEFAULT 'employee',
+                password VARCHAR(255) NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
