@@ -41,7 +41,10 @@ export const login = async (req, res) => {
         }
 
         const result = await pool.query(
-            'SELECT * FROM employees WHERE email = $1',
+            `SELECT e.*, r.name AS role_name
+             FROM employees e
+             LEFT JOIN Roles r ON e.role_id = r.id
+             WHERE e.email = $1`,
             [email]
         );
 
@@ -57,7 +60,12 @@ export const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role, name: user.name },
+            {
+                id: user.id,
+                email: user.email,
+                role: user.role_name || 'employee',
+                name: `${user.first_name} ${user.last_name}`.trim()
+            },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -68,10 +76,10 @@ export const login = async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                name: user.name,
-                role: user.role,
-                position: user.position,
-                department: user.department
+                name: `${user.first_name} ${user.last_name}`.trim(),
+                role: user.role_name || 'employee',
+                position: null,
+                department: null
             }
         });
     } catch (error) {
@@ -83,10 +91,18 @@ export const login = async (req, res) => {
 export const getProfile = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT id, email, name, position, department, salary, 
-                    TO_CHAR(join_date, 'YYYY-MM-DD') as join_date, 
-                    role, created_at 
-             FROM employees WHERE id = $1`,
+            `SELECT e.id,
+                    e.email,
+                    CONCAT(e.first_name, ' ', e.last_name) AS name,
+                    NULL::text AS position,
+                    NULL::text AS department,
+                    NULL::numeric AS salary,
+                    TO_CHAR(e.join_date, 'YYYY-MM-DD') as join_date,
+                    COALESCE(r.name, 'employee') AS role,
+                    e.created_at
+             FROM employees e
+             LEFT JOIN Roles r ON e.role_id = r.id
+             WHERE e.id = $1`,
             [req.user.id]
         );
 
