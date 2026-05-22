@@ -1,7 +1,6 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
@@ -32,7 +31,7 @@ const createTables = async () => {
         await client.query(`
             CREATE TABLE IF NOT EXISTS Roles (
                 id SERIAL PRIMARY KEY,
-                name VARCHAR(50) UNIQUE NOT NULL
+                name VARCHAR(50) UNIQUE NOT NULL,
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -76,24 +75,6 @@ const createTables = async () => {
                 FOR EACH ROW
                 EXECUTE FUNCTION update_updated_at_column();
         `);
-
-        // Check if admin already exists
-        const adminExists = await client.query(
-            'SELECT * FROM employees WHERE email = $1',
-            [process.env.ADMIN_EMAIL]
-        );
-
-        // Create default admin if not exists
-        if (adminExists.rows.length === 0) {
-            const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-            
-            await client.query(
-                `INSERT INTO employees (email, password, name, position, department, role) 
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [process.env.ADMIN_EMAIL, hashedPassword, 'Super Admin', 'Administrator', 'Management', 'admin']
-            );
-            console.log('Default admin created successfully');
-        }
 
         console.log('Database tables created/verified successfully');
     } catch (error) {
