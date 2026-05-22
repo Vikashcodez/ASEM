@@ -1,40 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 function App() {
-  const [token, setToken] = useState(localStorage.getItem('token'));
-  const [userRole, setUserRole] = useState(localStorage.getItem('userRole'));
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
+}
 
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-    } else {
-      localStorage.removeItem('token');
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userName');
-    }
-  }, [token]);
+function AppRoutes() {
+  const { token, user, loading, logout } = useAuth();
 
-  const handleLogout = () => {
-    setToken(null);
-    setUserRole(null);
-    localStorage.clear();
-  };
+  if (loading) {
+    return null;
+  }
 
   return (
     <Router>
       <Routes>
         <Route path="/login" element={
-          !token ? <Login setToken={setToken} setUserRole={setUserRole} /> : <Navigate to="/" />
+          !token ? <Login /> : <Navigate to="/" />
         } />
         <Route path="/" element={
           token ? (
-            userRole === 'admin' ? 
-              <AdminDashboard handleLogout={handleLogout} /> : 
-              <EmployeeDashboard handleLogout={handleLogout} />
+            user?.role === 'admin' ? 
+              <AdminDashboard handleLogout={logout} /> : 
+              <EmployeeDashboard handleLogout={logout} />
           ) : <Navigate to="/login" />
         } />
       </Routes>

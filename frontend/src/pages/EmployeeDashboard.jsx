@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
-    const userName = localStorage.getItem('userName');
+    const { token, user } = useAuth();
+    const userName = user?.name || 'Employee';
 
     useEffect(() => {
         fetchProfile();
@@ -12,7 +14,6 @@ function EmployeeDashboard({ handleLogout }) {
 
     const fetchProfile = async () => {
         try {
-            const token = localStorage.getItem('token');
             const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/profile`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -60,35 +61,35 @@ function EmployeeDashboard({ handleLogout }) {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                            <p className="mt-1 text-lg text-gray-900">{profile.name}</p>
+                            <p className="mt-1 text-lg text-gray-900">{profile?.name}</p>
                         </div>
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Email</label>
-                            <p className="mt-1 text-lg text-gray-900">{profile.email}</p>
+                            <p className="mt-1 text-lg text-gray-900">{profile?.email}</p>
                         </div>
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Position</label>
-                            <p className="mt-1 text-lg text-gray-900">{profile.position || 'Not specified'}</p>
+                            <p className="mt-1 text-lg text-gray-900">{profile?.position || 'Not specified'}</p>
                         </div>
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Department</label>
-                            <p className="mt-1 text-lg text-gray-900">{profile.department || 'Not specified'}</p>
+                            <p className="mt-1 text-lg text-gray-900">{profile?.department || 'Not specified'}</p>
                         </div>
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Salary</label>
                             <p className="mt-1 text-lg text-gray-900">
-                                {profile.salary ? `$${profile.salary}` : 'Not specified'}
+                                {profile?.salary ? `$${profile.salary}` : 'Not specified'}
                             </p>
                         </div>
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Join Date</label>
                             <p className="mt-1 text-lg text-gray-900">
-                                {profile.join_date ? new Date(profile.join_date).toLocaleDateString() : 'Not specified'}
+                                {profile?.join_date ? new Date(profile.join_date).toLocaleDateString() : 'Not specified'}
                             </p>
                         </div>
                     </div>

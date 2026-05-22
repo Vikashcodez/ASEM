@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import AddEmployee from '../components/AddEmployee';
 import EmployeeList from '../components/EmployeeList';
 import Roles from '../components/Roles';
+import { useAuth } from '../context/AuthContext';
 
 function AdminDashboard({ handleLogout }) {
     const [activeTab, setActiveTab] = useState('add');
-    const userName = localStorage.getItem('userName') || 'Admin';
-    const userRole = localStorage.getItem('userRole') || 'Administrator';
+    const { user } = useAuth();
+    const userName = user?.name || 'Admin';
+    const userRole = user?.role || 'Administrator';
 
     const navItems = [
         {

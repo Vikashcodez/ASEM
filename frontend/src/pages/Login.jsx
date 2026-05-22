@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-function Login({ setToken, setUserRole }) {
+function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -10,6 +10,7 @@ function Login({ setToken, setUserRole }) {
     const [showPassword, setShowPassword] = useState(false);
     const [focusedField, setFocusedField] = useState(null);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,20 +18,7 @@ function Login({ setToken, setUserRole }) {
         setError('');
 
         try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, {
-                email,
-                password
-            });
-
-            const { token, user } = response.data;
-            localStorage.setItem('token', token);
-            localStorage.setItem('userRole', user.role);
-            localStorage.setItem('userName', user.name);
-            localStorage.setItem('userId', user.id);
-
-            setToken(token);
-            setUserRole(user.role);
-
+            await login(email, password);
             navigate('/');
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
