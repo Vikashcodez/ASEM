@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import EmployeeProfile from '../components/EmployeeProfile';
+import Terminals from '../components/terminals';
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('profile');
+    const [buildingManagementOpen, setBuildingManagementOpen] = useState(true);
     const { token, user } = useAuth();
     const userName = user?.name || 'Employee';
-    const activeTab = 'profile'; // Static for this view
 
     const navItems = [
         {
@@ -21,22 +23,28 @@ function EmployeeDashboard({ handleLogout }) {
             )
         },
         {
-            id: 'emergency',
-            label: 'Emergency Protocols',
+            id: 'building-management',
+            label: 'Building Management',
             icon: (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    <path d="M3 21h18" />
+                    <path d="M6 21V5a2 2 0 012-2h8a2 2 0 012 2v16" />
+                    <path d="M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" />
                 </svg>
-            )
-        },
-        {
-            id: 'reports',
-            label: 'Incident Reports',
-            icon: (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-                </svg>
-            )
+            ),
+            children: [
+                {
+                    id: 'terminals',
+                    label: 'Terminals',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 19h16" />
+                            <path d="M6 19V7l6-4 6 4v12" />
+                            <path d="M10 19v-6h4v6" />
+                        </svg>
+                    )
+                }
+            ]
         }
     ];
 
@@ -100,30 +108,81 @@ function EmployeeDashboard({ handleLogout }) {
                         Navigation
                     </p>
                     
-                    {navItems.map((item) => (
-                        <button
-                            key={item.id}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative group"
-                            style={{
-                                color: activeTab === item.id ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                                background: activeTab === item.id ? 'rgba(255,255,255,0.08)' : 'transparent'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (activeTab !== item.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                                if (activeTab !== item.id) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
-                            }}
-                            onMouseLeave={(e) => {
-                                if (activeTab !== item.id) e.currentTarget.style.background = 'transparent';
-                                if (activeTab !== item.id) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
-                            }}
-                        >
-                            {activeTab === item.id && (
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-white" />
-                            )}
-                            <span className="relative z-10">{item.icon}</span>
-                            <span>{item.label}</span>
-                        </button>
-                    ))}
+                    {navItems.map((item) => {
+                        const isBuildingManagement = item.id === 'building-management';
+                        const isParentActive = isBuildingManagement && item.children?.some((child) => child.id === activeTab);
+
+                        return (
+                            <div key={item.id} className="space-y-1">
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative group"
+                                    style={{
+                                        color: activeTab === item.id || isParentActive ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                        background: activeTab === item.id || isParentActive ? 'rgba(255,255,255,0.08)' : 'transparent'
+                                    }}
+                                    onClick={() => {
+                                        if (isBuildingManagement) {
+                                            setBuildingManagementOpen((current) => !current);
+                                            return;
+                                        }
+
+                                        setActiveTab(item.id);
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.background = 'transparent';
+                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                                    }}
+                                >
+                                    {activeTab === item.id || isParentActive ? (
+                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-white" />
+                                    ) : null}
+                                    <span className="relative z-10">{item.icon}</span>
+                                    <span className="flex-1 text-left">{item.label}</span>
+                                    {isBuildingManagement && (
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${buildingManagementOpen ? 'rotate-180' : ''}`}>
+                                            <polyline points="6 9 12 15 18 9" />
+                                        </svg>
+                                    )}
+                                </button>
+
+                                {isBuildingManagement && buildingManagementOpen && item.children && (
+                                    <div className="ml-4 pl-4 space-y-1 border-l border-white/10">
+                                        {item.children.map((child) => (
+                                            <button
+                                                key={child.id}
+                                                type="button"
+                                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group"
+                                                style={{
+                                                    color: activeTab === child.id ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                                    background: activeTab === child.id ? 'rgba(255,255,255,0.08)' : 'transparent'
+                                                }}
+                                                onClick={() => setActiveTab(child.id)}
+                                                onMouseEnter={(e) => {
+                                                    if (activeTab !== child.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                                    if (activeTab !== child.id) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (activeTab !== child.id) e.currentTarget.style.background = 'transparent';
+                                                    if (activeTab !== child.id) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                                                }}
+                                            >
+                                                {activeTab === child.id && (
+                                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-white" />
+                                                )}
+                                                <span className="relative z-10">{child.icon}</span>
+                                                <span>{child.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </nav>
 
                 {/* Sidebar Footer */}
@@ -158,30 +217,36 @@ function EmployeeDashboard({ handleLogout }) {
 
             {/* Main Content Area */}
             <main className="flex-1 ml-72 flex flex-col min-h-screen">
-                
-                {/* Top Header Bar */}
-                <header className="h-20 bg-white flex items-center justify-between px-8 sticky top-0 z-10" style={{ borderBottom: '1px solid #EEF0F4', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900 tracking-tight">My Profile</h2>
-                        <p className="text-sm text-gray-400 mt-0.5">View your personal information and details</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="text-right">
-                            <p className="text-sm font-medium text-gray-700">
-                                {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                                {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
+                {activeTab === 'profile' ? (
+                    <>
+                        {/* Top Header Bar */}
+                        <header className="h-20 bg-white flex items-center justify-between px-8 sticky top-0 z-10" style={{ borderBottom: '1px solid #EEF0F4', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 tracking-tight">My Profile</h2>
+                                <p className="text-sm text-gray-400 mt-0.5">View your personal information and details</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-700">
+                                        {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                        {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* Page Content */}
+                        <div className="flex-1 p-8">
+                            <EmployeeProfile profile={profile} userName={userName} />
                         </div>
+                    </>
+                ) : (
+                    <div className="flex-1">
+                        <Terminals />
                     </div>
-                </header>
-
-                {/* Page Content */}
-                <div className="flex-1 p-8">
-                    <EmployeeProfile profile={profile} userName={userName} />
-                </div>
-
+                )}
             </main>
         </div>
     );
