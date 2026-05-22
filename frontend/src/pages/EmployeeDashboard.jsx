@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import EmployeeProfile from '../components/EmployeeProfile';
 import Terminals from '../components/terminals';
+import Blocks from '../components/blocks';
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
@@ -43,10 +44,29 @@ function EmployeeDashboard({ handleLogout }) {
                             <path d="M10 19v-6h4v6" />
                         </svg>
                     )
+                },
+                {
+                    id: 'blocks',
+                    label: 'Block',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 21h18" />
+                            <path d="M6 21V8l6-4 6 4v13" />
+                            <path d="M9 11h.01M9 14h.01M15 11h.01M15 14h.01" />
+                        </svg>
+                    )
                 }
             ]
         }
     ];
+
+    const hasActiveDescendant = (item) => {
+        if (item.id === activeTab) {
+            return true;
+        }
+
+        return item.children?.some((child) => hasActiveDescendant(child)) || false;
+    };
 
     useEffect(() => {
         fetchProfile();
@@ -110,7 +130,7 @@ function EmployeeDashboard({ handleLogout }) {
                     
                     {navItems.map((item) => {
                         const isBuildingManagement = item.id === 'building-management';
-                        const isParentActive = isBuildingManagement && item.children?.some((child) => child.id === activeTab);
+                        const isParentActive = isBuildingManagement && hasActiveDescendant(item);
 
                         return (
                             <div key={item.id} className="space-y-1">
@@ -152,32 +172,37 @@ function EmployeeDashboard({ handleLogout }) {
 
                                 {isBuildingManagement && buildingManagementOpen && item.children && (
                                     <div className="ml-4 pl-4 space-y-1 border-l border-white/10">
-                                        {item.children.map((child) => (
-                                            <button
-                                                key={child.id}
-                                                type="button"
-                                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group"
-                                                style={{
-                                                    color: activeTab === child.id ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                                                    background: activeTab === child.id ? 'rgba(255,255,255,0.08)' : 'transparent'
-                                                }}
-                                                onClick={() => setActiveTab(child.id)}
-                                                onMouseEnter={(e) => {
-                                                    if (activeTab !== child.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                                                    if (activeTab !== child.id) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    if (activeTab !== child.id) e.currentTarget.style.background = 'transparent';
-                                                    if (activeTab !== child.id) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
-                                                }}
-                                            >
-                                                {activeTab === child.id && (
-                                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-white" />
-                                                )}
-                                                <span className="relative z-10">{child.icon}</span>
-                                                <span>{child.label}</span>
-                                            </button>
-                                        ))}
+                                        {item.children.map((child) => {
+                                            const childHasActiveDescendant = hasActiveDescendant(child);
+
+                                            return (
+                                                <div key={child.id} className="space-y-1">
+                                                    <button
+                                                        type="button"
+                                                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group"
+                                                        style={{
+                                                            color: childHasActiveDescendant ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                                            background: childHasActiveDescendant ? 'rgba(255,255,255,0.08)' : 'transparent'
+                                                        }}
+                                                        onClick={() => setActiveTab(child.id)}
+                                                        onMouseEnter={(e) => {
+                                                            if (!childHasActiveDescendant) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                                            if (!childHasActiveDescendant) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (!childHasActiveDescendant) e.currentTarget.style.background = 'transparent';
+                                                            if (!childHasActiveDescendant) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                                                        }}
+                                                    >
+                                                        {childHasActiveDescendant && (
+                                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-white" />
+                                                        )}
+                                                        <span className="relative z-10">{child.icon}</span>
+                                                        <span>{child.label}</span>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -242,11 +267,15 @@ function EmployeeDashboard({ handleLogout }) {
                             <EmployeeProfile profile={profile} userName={userName} />
                         </div>
                     </>
-                ) : (
+                ) : activeTab === 'terminals' ? (
                     <div className="flex-1">
                         <Terminals />
                     </div>
-                )}
+                ) : activeTab === 'blocks' ? (
+                    <div className="flex-1">
+                        <Blocks />
+                    </div>
+                ) : null}
             </main>
         </div>
     );
