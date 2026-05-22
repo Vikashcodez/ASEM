@@ -61,6 +61,15 @@ const validateRelationships = async (terminal_id, block_id) => {
   return errors;
 };
 
+const normalizeNullableInt = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsedValue = Number.parseInt(value, 10);
+  return Number.isNaN(parsedValue) ? NaN : parsedValue;
+};
+
 // CREATE - Create a new floor
 export const createFloor = async (req, res) => {
   try {
@@ -72,6 +81,16 @@ export const createFloor = async (req, res) => {
       description,
       is_active = true
     } = req.body;
+
+    const normalizedTerminalId = normalizeNullableInt(terminal_id);
+    const normalizedBlockId = normalizeNullableInt(block_id);
+
+    if (Number.isNaN(normalizedTerminalId) || Number.isNaN(normalizedBlockId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Terminal and block IDs must be valid integers'
+      });
+    }
 
     // Validation
     if (!floor_name || floor_name.trim() === '') {
@@ -89,7 +108,7 @@ export const createFloor = async (req, res) => {
     }
 
     // Validate relationships
-    const validationErrors = await validateRelationships(terminal_id, block_id);
+    const validationErrors = await validateRelationships(normalizedTerminalId, normalizedBlockId);
     if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
@@ -102,12 +121,12 @@ export const createFloor = async (req, res) => {
     let duplicateCheck = '';
     let duplicateParams = [];
     
-    if (block_id) {
+    if (normalizedBlockId) {
       duplicateCheck = 'SELECT id FROM Floors WHERE block_id = $1 AND floor_number = $2';
-      duplicateParams = [block_id, floor_number];
-    } else if (terminal_id) {
+      duplicateParams = [normalizedBlockId, floor_number];
+    } else if (normalizedTerminalId) {
       duplicateCheck = 'SELECT id FROM Floors WHERE terminal_id = $1 AND floor_number = $2 AND block_id IS NULL';
-      duplicateParams = [terminal_id, floor_number];
+      duplicateParams = [normalizedTerminalId, floor_number];
     }
     
     if (duplicateCheck) {
@@ -129,8 +148,8 @@ export const createFloor = async (req, res) => {
     `;
 
     const values = [
-      terminal_id || null,
-      block_id || null,
+      normalizedTerminalId,
+      normalizedBlockId,
       floor_name.trim(),
       floor_number,
       description || null,
@@ -395,6 +414,16 @@ export const updateFloor = async (req, res) => {
       is_active
     } = req.body;
 
+    const normalizedTerminalId = terminal_id !== undefined ? normalizeNullableInt(terminal_id) : undefined;
+    const normalizedBlockId = block_id !== undefined ? normalizeNullableInt(block_id) : undefined;
+
+    if (Number.isNaN(normalizedTerminalId) || Number.isNaN(normalizedBlockId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Terminal and block IDs must be valid integers'
+      });
+    }
+
     // Check if floor exists
     const checkQuery = 'SELECT id, floor_name, floor_number FROM Floors WHERE id = $1';
     const checkResult = await pool.query(checkQuery, [id]);
@@ -407,9 +436,9 @@ export const updateFloor = async (req, res) => {
     }
 
     // Validate relationships if provided
-    if (terminal_id !== undefined || block_id !== undefined) {
-      const finalTerminalId = terminal_id !== undefined ? terminal_id : (await getFloorTerminalId(id));
-      const finalBlockId = block_id !== undefined ? block_id : (await getFloorBlockId(id));
+    if (normalizedTerminalId !== undefined || normalizedBlockId !== undefined) {
+      const finalTerminalId = normalizedTerminalId !== undefined ? normalizedTerminalId : (await getFloorTerminalId(id));
+      const finalBlockId = normalizedBlockId !== undefined ? normalizedBlockId : (await getFloorBlockId(id));
       
       const validationErrors = await validateRelationships(finalTerminalId, finalBlockId);
       if (validationErrors.length > 0) {
@@ -424,8 +453,8 @@ export const updateFloor = async (req, res) => {
     // Check for duplicate floor number
     if (floor_number !== undefined) {
       const currentFloor = checkResult.rows[0];
-      const finalBlockId = block_id !== undefined ? block_id : (await getFloorBlockId(id));
-      const finalTerminalId = terminal_id !== undefined ? terminal_id : (await getFloorTerminalId(id));
+      const finalBlockId = normalizedBlockId !== undefined ? normalizedBlockId : (await getFloorBlockId(id));
+      const finalTerminalId = normalizedTerminalId !== undefined ? normalizedTerminalId : (await getFloorTerminalId(id));
       
       let duplicateCheck = '';
       let duplicateParams = [];
@@ -454,15 +483,15 @@ export const updateFloor = async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
-    if (terminal_id !== undefined) {
+    if (normalizedTerminalId !== undefined) {
       updates.push(`terminal_id = $${paramIndex}`);
-      params.push(terminal_id || null);
+      params.push(normalizedTerminalId);
       paramIndex++;
     }
 
-    if (block_id !== undefined) {
+    if (normalizedBlockId !== undefined) {
       updates.push(`block_id = $${paramIndex}`);
-      params.push(block_id || null);
+      params.push(normalizedBlockId);
       paramIndex++;
     }
 

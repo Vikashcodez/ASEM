@@ -109,7 +109,7 @@ function Blocks() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/stats/blocks`, getAuthConfig());
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/blocks/stats`, getAuthConfig());
       setStats(response.data.data);
     } catch (err) {
       console.error('Error fetching stats:', err);

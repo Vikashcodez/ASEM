@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import EmployeeProfile from '../components/EmployeeProfile';
 import Terminals from '../components/terminals';
 import Blocks from '../components/blocks';
+import Floors from '../components/floors';
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
@@ -53,6 +54,17 @@ function EmployeeDashboard({ handleLogout }) {
                             <path d="M3 21h18" />
                             <path d="M6 21V8l6-4 6 4v13" />
                             <path d="M9 11h.01M9 14h.01M15 11h.01M15 14h.01" />
+                        </svg>
+                    )
+                },
+                {
+                    id: 'floors',
+                    label: 'Floor',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 20h16" />
+                            <path d="M7 20V8l5-4 5 4v12" />
+                            <path d="M10 20v-5h4v5" />
                         </svg>
                     )
                 }
@@ -274,6 +286,10 @@ function EmployeeDashboard({ handleLogout }) {
                 ) : activeTab === 'blocks' ? (
                     <div className="flex-1">
                         <Blocks />
+                    </div>
+                ) : activeTab === 'floors' ? (
+                    <div className="flex-1">
+                        <Floors />
                     </div>
                 ) : null}
             </main>
