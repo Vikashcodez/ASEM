@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { createTables, testConnection } from './src/config/database.js';
 import authRoutes from './src/routes/auth.Routes.js';
 import employeeRoutes from './src/routes/employee.Routes.js';
+import RolesRouter from './src/routes/roles.Routes.js';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', employeeRoutes);
+app.use('/api/roles', RolesRouter);
 
 // Health check route
 app.get('/api/health', (req, res) => {
