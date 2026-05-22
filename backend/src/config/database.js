@@ -56,6 +56,72 @@ const createTables = async () => {
             )
         `);
 
+
+    await client.query(`
+    CREATE TABLE IF NOT EXISTS Terminals (
+        id SERIAL PRIMARY KEY,
+        terminal_name VARCHAR(100) NOT NULL,
+        terminal_code VARCHAR(50),
+        description TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`)
+
+await client.query(`
+    CREATE TABLE IF NOT EXISTS Blocks (
+        id SERIAL PRIMARY KEY,
+        terminal_id INT REFERENCES Terminals(id) ON DELETE CASCADE,
+        block_name VARCHAR(100) NOT NULL,
+        block_code VARCHAR(50),
+        block_type VARCHAR(100),
+        description TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`)
+
+await client.query(`
+    CREATE TABLE IF NOT EXISTS Floors (
+        id SERIAL PRIMARY KEY,
+        terminal_id INT REFERENCES Terminals(id) ON DELETE CASCADE,
+        block_id INT REFERENCES Blocks(id) ON DELETE CASCADE,
+        floor_name VARCHAR(100) NOT NULL,
+        floor_number INT NOT NULL,
+        description TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`)
+
+await client.query(`
+    CREATE TABLE IF NOT EXISTS Rooms (
+        id SERIAL PRIMARY KEY,
+        terminal_id INT REFERENCES Terminals(id) ON DELETE CASCADE,
+        block_id INT REFERENCES Blocks(id) ON DELETE CASCADE,
+        floor_id INT REFERENCES Floors(id) ON DELETE CASCADE,
+
+        room_name VARCHAR(100) NOT NULL,
+        room_code VARCHAR(50) UNIQUE NOT NULL,
+        room_type VARCHAR(100),
+
+        max_capacity INT DEFAULT 0,
+        current_occupancy INT DEFAULT 0,
+
+        room_status VARCHAR(50) DEFAULT 'AVAILABLE',
+
+        description TEXT,
+
+        is_active BOOLEAN DEFAULT TRUE,
+
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`)
+
         // Create function to update updated_at timestamp
         await client.query(`
             CREATE OR REPLACE FUNCTION update_updated_at_column()
