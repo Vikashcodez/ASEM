@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AddEmployee from '../components/AddEmployee';
 import EmployeeList from '../components/EmployeeList';
+import Roles from '../components/Roles';
 
 function AdminDashboard({ handleLogout }) {
     const [activeTab, setActiveTab] = useState('add');
@@ -29,6 +30,16 @@ function AdminDashboard({ handleLogout }) {
                     <circle cx="9" cy="7" r="4"/>
                     <path d="M23 21v-2a4 4 0 00-3-3.87"/>
                     <path d="M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+            )
+        },
+        {
+            id: 'roles',
+            label: 'Roles',
+            icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2l7 4v6c0 5-3.5 9.74-7 10-3.5-.26-7-5-7-10V6l7-4z" />
+                    <path d="M9 12l2 2 4-4" />
                 </svg>
             )
         }
@@ -124,10 +135,14 @@ function AdminDashboard({ handleLogout }) {
                 <header className="h-20 bg-white flex items-center justify-between px-8 sticky top-0 z-10" style={{ borderBottom: '1px solid #EEF0F4', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-                            {activeTab === 'add' ? 'Add New Employee' : 'Employee Directory'}
+                            {activeTab === 'add' ? 'Add New Employee' : activeTab === 'list' ? 'Employee Directory' : 'Roles'}
                         </h2>
                         <p className="text-sm text-gray-400 mt-0.5">
-                            {activeTab === 'add' ? 'Fill in the details to register new personnel' : 'View and manage all registered personnel'}
+                            {activeTab === 'add'
+                                ? 'Fill in the details to register new personnel'
+                                : activeTab === 'list'
+                                    ? 'View and manage all registered personnel'
+                                    : 'View the roles available in the system'}
                         </p>
                     </div>
                     
@@ -149,6 +164,7 @@ function AdminDashboard({ handleLogout }) {
                     <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid #EEF0F4' }}>
                         {activeTab === 'add' && <AddEmployee />}
                         {activeTab === 'list' && <EmployeeList />}
+                        {activeTab === 'roles' && <Roles />}
                     </div>
                 </div>
 
