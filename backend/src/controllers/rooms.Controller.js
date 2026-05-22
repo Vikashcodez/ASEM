@@ -1,5 +1,14 @@
 import {pool} from '../config/database.js';
 
+const normalizeNullableInt = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsedValue = parseInt(value, 10);
+  return Number.isNaN(parsedValue) ? null : parsedValue;
+};
+
 // Helper function to format room response
 const formatRoomResponse = (room) => {
   return {
@@ -120,6 +129,12 @@ export const createRoom = async (req, res) => {
       is_active = true
     } = req.body;
 
+    const normalizedTerminalId = normalizeNullableInt(terminal_id);
+    const normalizedBlockId = normalizeNullableInt(block_id);
+    const normalizedFloorId = normalizeNullableInt(floor_id);
+    const normalizedMaxCapacity = parseInt(max_capacity, 10) || 0;
+    const normalizedCurrentOccupancy = parseInt(current_occupancy, 10) || 0;
+
     // Validation
     if (!room_name || room_name.trim() === '') {
       return res.status(400).json({
@@ -128,7 +143,7 @@ export const createRoom = async (req, res) => {
       });
     }
 
-    if (current_occupancy > max_capacity) {
+    if (normalizedCurrentOccupancy > normalizedMaxCapacity) {
       return res.status(400).json({
         success: false,
         message: 'Current occupancy cannot exceed maximum capacity'
@@ -136,7 +151,7 @@ export const createRoom = async (req, res) => {
     }
 
     // Validate relationships
-    const validationErrors = await validateRelationships(terminal_id, block_id, floor_id);
+    const validationErrors = await validateRelationships(normalizedTerminalId, normalizedBlockId, normalizedFloorId);
     if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
@@ -148,9 +163,9 @@ export const createRoom = async (req, res) => {
     // Generate room code if not provided
     let finalRoomCode = room_code;
     if (!finalRoomCode) {
-      const terminalInfo = terminal_id ? await pool.query('SELECT terminal_code FROM Terminals WHERE id = $1', [terminal_id]) : { rows: [{}] };
-      const blockInfo = block_id ? await pool.query('SELECT block_code FROM Blocks WHERE id = $1', [block_id]) : { rows: [{}] };
-      const floorInfo = floor_id ? await pool.query('SELECT floor_number FROM Floors WHERE id = $1', [floor_id]) : { rows: [{}] };
+      const terminalInfo = normalizedTerminalId ? await pool.query('SELECT terminal_code FROM Terminals WHERE id = $1', [normalizedTerminalId]) : { rows: [{}] };
+      const blockInfo = normalizedBlockId ? await pool.query('SELECT block_code FROM Blocks WHERE id = $1', [normalizedBlockId]) : { rows: [{}] };
+      const floorInfo = normalizedFloorId ? await pool.query('SELECT floor_number FROM Floors WHERE id = $1', [normalizedFloorId]) : { rows: [{}] };
       
       finalRoomCode = generateRoomCode(
         room_name,
@@ -170,14 +185,14 @@ export const createRoom = async (req, res) => {
     `;
 
     const values = [
-      terminal_id || null,
-      block_id || null,
-      floor_id || null,
+      normalizedTerminalId,
+      normalizedBlockId,
+      normalizedFloorId,
       room_name.trim(),
       finalRoomCode,
       room_type || null,
-      max_capacity,
-      current_occupancy,
+      normalizedMaxCapacity,
+      normalizedCurrentOccupancy,
       room_status,
       description || null,
       is_active
@@ -506,6 +521,12 @@ export const updateRoom = async (req, res) => {
       is_active
     } = req.body;
 
+    const normalizedTerminalId = normalizeNullableInt(terminal_id);
+    const normalizedBlockId = normalizeNullableInt(block_id);
+    const normalizedFloorId = normalizeNullableInt(floor_id);
+    const normalizedMaxCapacity = max_capacity !== undefined ? parseInt(max_capacity, 10) : undefined;
+    const normalizedCurrentOccupancy = current_occupancy !== undefined ? parseInt(current_occupancy, 10) : undefined;
+
     // Check if room exists
     const checkQuery = 'SELECT id, room_name FROM Rooms WHERE id = $1';
     const checkResult = await pool.query(checkQuery, [id]);
@@ -519,8 +540,8 @@ export const updateRoom = async (req, res) => {
 
     // Validate occupancy
     const currentData = await getRoomWithDetails(id);
-    const finalMaxCapacity = max_capacity !== undefined ? max_capacity : currentData.max_capacity;
-    const finalCurrentOccupancy = current_occupancy !== undefined ? current_occupancy : currentData.current_occupancy;
+    const finalMaxCapacity = normalizedMaxCapacity !== undefined ? normalizedMaxCapacity : currentData.max_capacity;
+    const finalCurrentOccupancy = normalizedCurrentOccupancy !== undefined ? normalizedCurrentOccupancy : currentData.current_occupancy;
     
     if (finalCurrentOccupancy > finalMaxCapacity) {
       return res.status(400).json({
@@ -531,9 +552,9 @@ export const updateRoom = async (req, res) => {
 
     // Validate relationships if provided
     if (terminal_id !== undefined || block_id !== undefined || floor_id !== undefined) {
-      const finalTerminalId = terminal_id !== undefined ? terminal_id : currentData.terminal_id;
-      const finalBlockId = block_id !== undefined ? block_id : currentData.block_id;
-      const finalFloorId = floor_id !== undefined ? floor_id : currentData.floor_id;
+      const finalTerminalId = terminal_id !== undefined ? normalizedTerminalId : currentData.terminal_id;
+      const finalBlockId = block_id !== undefined ? normalizedBlockId : currentData.block_id;
+      const finalFloorId = floor_id !== undefined ? normalizedFloorId : currentData.floor_id;
       
       const validationErrors = await validateRelationships(finalTerminalId, finalBlockId, finalFloorId);
       if (validationErrors.length > 0) {
@@ -552,19 +573,19 @@ export const updateRoom = async (req, res) => {
 
     if (terminal_id !== undefined) {
       updates.push(`terminal_id = $${paramIndex}`);
-      params.push(terminal_id || null);
+      params.push(normalizedTerminalId);
       paramIndex++;
     }
 
     if (block_id !== undefined) {
       updates.push(`block_id = $${paramIndex}`);
-      params.push(block_id || null);
+      params.push(normalizedBlockId);
       paramIndex++;
     }
 
     if (floor_id !== undefined) {
       updates.push(`floor_id = $${paramIndex}`);
-      params.push(floor_id || null);
+      params.push(normalizedFloorId);
       paramIndex++;
     }
 
@@ -588,13 +609,13 @@ export const updateRoom = async (req, res) => {
 
     if (max_capacity !== undefined) {
       updates.push(`max_capacity = $${paramIndex}`);
-      params.push(max_capacity);
+      params.push(normalizedMaxCapacity);
       paramIndex++;
     }
 
     if (current_occupancy !== undefined) {
       updates.push(`current_occupancy = $${paramIndex}`);
-      params.push(current_occupancy);
+      params.push(normalizedCurrentOccupancy);
       paramIndex++;
     }
 
