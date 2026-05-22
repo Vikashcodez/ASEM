@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import AddEmployee from './AddEmployee';
-import EmployeeList from './EmployeeList';
+import AddEmployee from '../components/AddEmployee';
+import EmployeeList from '../components/EmployeeList';
 
 function AdminDashboard({ handleLogout }) {
     const [activeTab, setActiveTab] = useState('add');
