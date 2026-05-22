@@ -18,7 +18,7 @@ const formatEmployeeResponse = (employee) => {
     last_name: employee.last_name,
     contact_number: employee.contact_number,
     email: employee.email,
-    address: employee.address,
+    address: employee.address ?? employee.adress ?? null,
     join_date: employee.join_date,
     is_active: employee.is_active,
     created_at: employee.created_at,
@@ -68,7 +68,7 @@ export const registerEmployee = async (req, res) => {
     const query = `
       INSERT INTO employees (
         role_id, first_name, last_name, contact_number, 
-        email, address, join_date, password, is_active, 
+        email, adress, join_date, password, is_active, 
         created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *
@@ -301,7 +301,7 @@ export const updateEmployee = async (req, res) => {
     }
     
     if (address !== undefined) {
-      updates.push(`address = $${paramIndex}`);
+      updates.push(`adress = $${paramIndex}`);
       params.push(address || {});
       paramIndex++;
     }

@@ -20,6 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', employeeRoutes);
 app.use('/api/roles', RolesRouter);
+app.use('/api/employees', employeeRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
