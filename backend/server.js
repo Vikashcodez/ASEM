@@ -9,6 +9,7 @@ import terminalsRouter from './src/routes/terminals.Routes.js';
 import blocksRouter from './src/routes/blocks.Routes.js';
 import floorsRouter from './src/routes/floors.Routes.js';
 import roomsRouter from './src/routes/rooms.Routes.js';
+import incidentsRouter from './src/routes/incidents.Routes.js';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/terminals', terminalsRouter);
 app.use('/api/blocks', blocksRouter);
 app.use('/api/floors', floorsRouter);
 app.use('/api/rooms', roomsRouter);
+app.use('/api/incidents',incidentsRouter);
 
 // Health check route
 app.get('/api/health', (req, res) => {

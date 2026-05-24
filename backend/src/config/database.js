@@ -130,7 +130,7 @@ await client.query(`
 await client.query(`
     CREATE TABLE IF NOT EXISTS Incidents (
         id SERIAL PRIMARY KEY,
-        terminal_id INT REFERENCES Terminals(id) ON DELETE CASCADE,
+        room_id INT REFERENCES Rooms(id) ON DELETE CASCADE,
         incident_code VARCHAR(100) UNIQUE NOT NULL,
         incident_type VARCHAR(100) NOT NULL,
         incident_title VARCHAR(200),
