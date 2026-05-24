@@ -38,7 +38,7 @@ const createTables = async () => {
             )
         `);
 
-
+// employees table
         await client.query(`
             CREATE TABLE IF NOT EXISTS employees (
                 id SERIAL PRIMARY KEY,
@@ -56,7 +56,8 @@ const createTables = async () => {
             )
         `);
 
-
+// Building Setup Tables
+//Terminals table
     await client.query(`
     CREATE TABLE IF NOT EXISTS Terminals (
         id SERIAL PRIMARY KEY,
@@ -69,6 +70,7 @@ const createTables = async () => {
     )
 `)
 
+// Blocks table
 await client.query(`
     CREATE TABLE IF NOT EXISTS Blocks (
         id SERIAL PRIMARY KEY,
@@ -83,6 +85,7 @@ await client.query(`
     )
 `)
 
+// Floors table
 await client.query(`
     CREATE TABLE IF NOT EXISTS Floors (
         id SERIAL PRIMARY KEY,
@@ -97,6 +100,7 @@ await client.query(`
     )
 `)
 
+// Rooms table
 await client.query(`
     CREATE TABLE IF NOT EXISTS Rooms (
         id SERIAL PRIMARY KEY,
@@ -117,6 +121,26 @@ await client.query(`
 
         is_active BOOLEAN DEFAULT TRUE,
 
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`)
+
+// Incidents table
+await client.query(`
+    CREATE TABLE IF NOT EXISTS Incidents (
+        id SERIAL PRIMARY KEY,
+        terminal_id INT REFERENCES Terminals(id) ON DELETE CASCADE,
+        incident_code VARCHAR(100) UNIQUE NOT NULL,
+        incident_type VARCHAR(100) NOT NULL,
+        incident_title VARCHAR(200),
+        location_details TEXT,
+        description TEXT,
+        severity_level VARCHAR(50),
+        incident_status VARCHAR(50) DEFAULT 'OPEN',
+        total_people INT DEFAULT 0,
+        reported_by INT REFERENCES employees(id) ON DELETE SET NULL,
+        is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
