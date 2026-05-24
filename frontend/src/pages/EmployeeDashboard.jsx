@@ -6,6 +6,8 @@ import Terminals from '../components/terminals';
 import Blocks from '../components/blocks';
 import Floors from '../components/floors';
 import Rooms from '../components/rooms';
+import RoomAvailability from '../components/RoomsAvaiblity';
+import Availability from '../components/RoomsAvaiblity';
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
@@ -78,6 +80,18 @@ function EmployeeDashboard({ handleLogout }) {
                             <path d="M5 21V7l7-4 7 4v14" />
                             <path d="M9 21v-6h6v6" />
                             <path d="M9 11h.01M15 11h.01" />
+                        </svg>
+                    )
+                },
+                {
+                    id: 'room-availability',
+                    label: 'Room Availability',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 21h18" />
+                            <path d="M5 21V7l7-4 7 4v14" />
+                            <path d="M9 21v-6h6v6" />
+                            <path d="M8 12l2 2 4-4" />
                         </svg>
                     )
                 }
@@ -307,6 +321,10 @@ function EmployeeDashboard({ handleLogout }) {
                 ) : activeTab === 'rooms' ? (
                     <div className="flex-1">
                         <Rooms />
+                    </div>
+                ) : activeTab === 'room-availability' ? (
+                    <div className="flex-1">
+                        <RoomAvailability />
                     </div>
                 ) : null}
             </main>

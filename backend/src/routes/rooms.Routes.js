@@ -13,7 +13,12 @@ import {
   bulkCreateRooms,
   getRoomStats,
   getRoomTypes,
-  getRoomStatusSummary
+  getRoomStatusSummary,
+  getFullHierarchy,
+  getSimplifiedHierarchy,
+  getTerminalHierarchy,
+  getAllRoomsWithHierarchy
+
 } from '../controllers/rooms.controller.js';
 
 const roomsRouter = express.Router();
@@ -25,6 +30,12 @@ roomsRouter.get('/types/all', getRoomTypes);                 // Get all room typ
 roomsRouter.get('/status/summary', getRoomStatusSummary);    // Get status summary
 roomsRouter.post('/bulk', bulkCreateRooms);
 roomsRouter.get('/stats', getRoomStats);
+
+// Hierarchy routes
+roomsRouter.get('/hierarchy', getFullHierarchy);
+roomsRouter.get('/hierarchy/simplified', getSimplifiedHierarchy);
+roomsRouter.get('/hierarchy/terminal/:terminalId', getTerminalHierarchy);
+roomsRouter.get('/rooms/hierarchy', getAllRoomsWithHierarchy);
 
 // Basic CRUD routes
 roomsRouter.post('/', createRoom);                    // Create room

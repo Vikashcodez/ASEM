@@ -1072,3 +1072,301 @@ export const getRoomStatusSummary = async (req, res) => {
     });
   }
 };
+
+// Get complete hierarchy: Terminals -> Blocks -> Floors -> Rooms
+export const getFullHierarchy = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                t.id AS terminal_id,
+                t.terminal_name,
+                t.terminal_code,
+                t.description AS terminal_description,
+                t.is_active AS terminal_is_active,
+                COALESCE(
+                    JSONB_AGG(
+                    JSONB_BUILD_OBJECT(
+                            'block_id', b.id,
+                            'block_name', b.block_name,
+                            'block_code', b.block_code,
+                            'block_type', b.block_type,
+                            'description', b.description,
+                            'is_active', b.is_active,
+                            'floors', COALESCE(
+                                (
+                                    SELECT JSONB_AGG(
+                                        JSONB_BUILD_OBJECT(
+                                            'floor_id', f.id,
+                                            'floor_name', f.floor_name,
+                                            'floor_number', f.floor_number,
+                                            'description', f.description,
+                                            'is_active', f.is_active,
+                                            'rooms', COALESCE(
+                                                (
+                                                    SELECT JSONB_AGG(
+                                                        JSONB_BUILD_OBJECT(
+                                                            'room_id', r.id,
+                                                            'room_name', r.room_name,
+                                                            'room_code', r.room_code,
+                                                            'room_type', r.room_type,
+                                                            'max_capacity', r.max_capacity,
+                                                            'current_occupancy', r.current_occupancy,
+                                                            'room_status', r.room_status,
+                                                            'description', r.description,
+                                                            'is_active', r.is_active,
+                                                            'created_at', r.created_at,
+                                                            'updated_at', r.updated_at
+                                                        )
+                                                        ORDER BY r.room_name
+                                                    )
+                                                    FROM Rooms r
+                                                    WHERE r.floor_id = f.id 
+                                                    AND r.is_active = true
+                                                ),
+                                                '[]'::jsonb
+                                            )
+                                        )
+                                        ORDER BY f.floor_number
+                                    )
+                                    FROM Floors f
+                                    WHERE f.block_id = b.id 
+                                    AND f.is_active = true
+                                ),
+                                '[]'::jsonb
+                            )
+                        )
+                        ORDER BY b.block_name
+                    ) FILTER (WHERE b.id IS NOT NULL),
+                    '[]'::jsonb
+                ) AS blocks
+            FROM Terminals t
+            LEFT JOIN Blocks b ON b.terminal_id = t.id AND b.is_active = true
+            WHERE t.is_active = true
+            GROUP BY t.id
+            ORDER BY t.terminal_name
+        `;
+
+        const result = await pool.query(query);
+        
+        res.status(200).json({
+            success: true,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching hierarchy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching hierarchy',
+            error: error.message
+        });
+    }
+};
+
+// Get hierarchy for a specific terminal
+export const getTerminalHierarchy = async (req, res) => {
+    try {
+        const { terminalId } = req.params;
+        
+        const query = `
+            SELECT 
+                t.id AS terminal_id,
+                t.terminal_name,
+                t.terminal_code,
+                t.description AS terminal_description,
+                t.is_active AS terminal_is_active,
+                COALESCE(
+                    JSONB_AGG(
+                    JSONB_BUILD_OBJECT(
+                            'block_id', b.id,
+                            'block_name', b.block_name,
+                            'block_code', b.block_code,
+                            'block_type', b.block_type,
+                            'description', b.description,
+                            'is_active', b.is_active,
+                            'floors', COALESCE(
+                                (
+                                    SELECT JSONB_AGG(
+                                        JSONB_BUILD_OBJECT(
+                                            'floor_id', f.id,
+                                            'floor_name', f.floor_name,
+                                            'floor_number', f.floor_number,
+                                            'description', f.description,
+                                            'is_active', f.is_active,
+                                            'rooms', COALESCE(
+                                                (
+                                                    SELECT JSONB_AGG(
+                                                        JSONB_BUILD_OBJECT(
+                                                            'room_id', r.id,
+                                                            'room_name', r.room_name,
+                                                            'room_code', r.room_code,
+                                                            'room_type', r.room_type,
+                                                            'max_capacity', r.max_capacity,
+                                                            'current_occupancy', r.current_occupancy,
+                                                            'room_status', r.room_status,
+                                                            'description', r.description,
+                                                            'is_active', r.is_active,
+                                                            'created_at', r.created_at,
+                                                            'updated_at', r.updated_at
+                                                        )
+                                                        ORDER BY r.room_name
+                                                    )
+                                                    FROM Rooms r
+                                                    WHERE r.floor_id = f.id 
+                                                    AND r.is_active = true
+                                                ),
+                                                '[]'::jsonb
+                                            )
+                                        )
+                                        ORDER BY f.floor_number
+                                    )
+                                    FROM Floors f
+                                    WHERE f.block_id = b.id 
+                                    AND f.is_active = true
+                                ),
+                                '[]'::jsonb
+                            )
+                        )
+                        ORDER BY b.block_name
+                    ) FILTER (WHERE b.id IS NOT NULL),
+                    '[]'::jsonb
+                ) AS blocks
+            FROM Terminals t
+            LEFT JOIN Blocks b ON b.terminal_id = t.id AND b.is_active = true
+            WHERE t.id = $1 AND t.is_active = true
+            GROUP BY t.id
+        `;
+        
+        const result = await pool.query(query, [terminalId]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Terminal not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error fetching terminal hierarchy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching terminal hierarchy',
+            error: error.message
+        });
+    }
+};
+
+// Get simplified hierarchy (only IDs and names)
+export const getSimplifiedHierarchy = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                t.id AS terminal_id,
+                t.terminal_name,
+                (
+                    SELECT JSONB_AGG(
+                        JSONB_BUILD_OBJECT(
+                            'block_id', b.id,
+                            'block_name', b.block_name,
+                            'floors', (
+                                SELECT JSONB_AGG(
+                                    JSONB_BUILD_OBJECT(
+                                        'floor_id', f.id,
+                                        'floor_name', f.floor_name,
+                                        'floor_number', f.floor_number,
+                                        'rooms', (
+                                            SELECT JSONB_AGG(
+                                                JSONB_BUILD_OBJECT(
+                                                    'room_id', r.id,
+                                                    'room_name', r.room_name,
+                                                    'room_code', r.room_code
+                                                )
+                                                ORDER BY r.room_name
+                                            )
+                                            FROM Rooms r
+                                            WHERE r.floor_id = f.id AND r.is_active = true
+                                        )
+                                    )
+                                    ORDER BY f.floor_number
+                                )
+                                FROM Floors f
+                                WHERE f.block_id = b.id AND f.is_active = true
+                            )
+                        )
+                        ORDER BY b.block_name
+                    )
+                    FROM Blocks b
+                    WHERE b.terminal_id = t.id AND b.is_active = true
+                ) AS blocks
+            FROM Terminals t
+            WHERE t.is_active = true
+            ORDER BY t.terminal_name
+        `;
+        
+        const result = await pool.query(query);
+        
+        res.status(200).json({
+            success: true,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching simplified hierarchy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching simplified hierarchy',
+            error: error.message
+        });
+    }
+};
+
+// Get all rooms with their full parent hierarchy
+export const getAllRoomsWithHierarchy = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                r.id AS room_id,
+                r.room_name,
+                r.room_code,
+                r.room_type,
+                r.max_capacity,
+                r.current_occupancy,
+                r.room_status,
+                r.description AS room_description,
+                r.is_active AS room_is_active,
+                jsonb_build_object(
+                    'floor_id', f.id,
+                    'floor_name', f.floor_name,
+                    'floor_number', f.floor_number,
+                    'block_id', b.id,
+                    'block_name', b.block_name,
+                    'block_code', b.block_code,
+                    'terminal_id', t.id,
+                    'terminal_name', t.terminal_name,
+                    'terminal_code', t.terminal_code
+                ) AS parent_hierarchy
+            FROM Rooms r
+            JOIN Floors f ON r.floor_id = f.id
+            JOIN Blocks b ON r.block_id = b.id
+            JOIN Terminals t ON r.terminal_id = t.id
+            WHERE r.is_active = true
+            ORDER BY t.terminal_name, b.block_name, f.floor_number, r.room_name
+        `;
+        
+        const result = await pool.query(query);
+        
+        res.status(200).json({
+            success: true,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching rooms with hierarchy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching rooms with hierarchy',
+            error: error.message
+        });
+    }
+};
