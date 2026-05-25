@@ -8,16 +8,44 @@ import Floors from '../components/floors';
 import Rooms from '../components/rooms';
 import RoomAvailability from '../components/RoomsAvaiblity';
 import Availability from '../components/RoomsAvaiblity';
+import IncidentManagementSystem from '../components/IncidentManagement';
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('profile');
     const [buildingManagementOpen, setBuildingManagementOpen] = useState(true);
+    const [incidentManagementOpen, setIncidentManagementOpen] = useState(true);
     const { token, user } = useAuth();
     const userName = user?.name || 'Employee';
 
     const navItems = [
+        {
+            id: 'incident-management',
+            label: 'Incident Management',
+            icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13l2-2 2 2" />
+                    <path d="M12 11v6" />
+                    <path d="M4 6h16" />
+                    <path d="M6 6l1-2h10l1 2" />
+                    <path d="M5 6l1 14h12l1-14" />
+                </svg>
+            ),
+            children: [
+                {
+                    id: 'add-incidents',
+                    label: 'Add Incidents',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
+                        </svg>
+                    )
+                }
+            ]
+        },
         {
             id: 'profile',
             label: 'My Profile',
@@ -169,7 +197,13 @@ function EmployeeDashboard({ handleLogout }) {
                     
                     {navItems.map((item) => {
                         const isBuildingManagement = item.id === 'building-management';
+                        const isIncidentManagement = item.id === 'incident-management';
                         const isParentActive = isBuildingManagement && hasActiveDescendant(item);
+                        const isIncidentParentActive = isIncidentManagement && hasActiveDescendant(item);
+                        const isExpandableParent = isBuildingManagement || isIncidentManagement;
+                        const isParentExpanded = isBuildingManagement ? buildingManagementOpen : incidentManagementOpen;
+                        const setParentExpanded = isBuildingManagement ? setBuildingManagementOpen : setIncidentManagementOpen;
+                        const isAnyParentActive = isParentActive || isIncidentParentActive;
 
                         return (
                             <div key={item.id} className="space-y-1">
@@ -177,39 +211,39 @@ function EmployeeDashboard({ handleLogout }) {
                                     type="button"
                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative group"
                                     style={{
-                                        color: activeTab === item.id || isParentActive ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                                        background: activeTab === item.id || isParentActive ? 'rgba(255,255,255,0.08)' : 'transparent'
+                                        color: activeTab === item.id || isAnyParentActive ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                        background: activeTab === item.id || isAnyParentActive ? 'rgba(255,255,255,0.08)' : 'transparent'
                                     }}
                                     onClick={() => {
-                                        if (isBuildingManagement) {
-                                            setBuildingManagementOpen((current) => !current);
+                                        if (isExpandableParent) {
+                                            setParentExpanded((current) => !current);
                                             return;
                                         }
 
                                         setActiveTab(item.id);
                                     }}
                                     onMouseEnter={(e) => {
-                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                                        if (activeTab !== item.id && !isAnyParentActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                        if (activeTab !== item.id && !isAnyParentActive) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
                                     }}
                                     onMouseLeave={(e) => {
-                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.background = 'transparent';
-                                        if (activeTab !== item.id && !isParentActive) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                                        if (activeTab !== item.id && !isAnyParentActive) e.currentTarget.style.background = 'transparent';
+                                        if (activeTab !== item.id && !isAnyParentActive) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
                                     }}
                                 >
-                                    {activeTab === item.id || isParentActive ? (
+                                    {activeTab === item.id || isAnyParentActive ? (
                                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-white" />
                                     ) : null}
                                     <span className="relative z-10">{item.icon}</span>
                                     <span className="flex-1 text-left">{item.label}</span>
-                                    {isBuildingManagement && (
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${buildingManagementOpen ? 'rotate-180' : ''}`}>
+                                    {isExpandableParent && (
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${isParentExpanded ? 'rotate-180' : ''}`}>
                                             <polyline points="6 9 12 15 18 9" />
                                         </svg>
                                     )}
                                 </button>
 
-                                {isBuildingManagement && buildingManagementOpen && item.children && (
+                                {isExpandableParent && isParentExpanded && item.children && (
                                     <div className="ml-4 pl-4 space-y-1 border-l border-white/10">
                                         {item.children.map((child) => {
                                             const childHasActiveDescendant = hasActiveDescendant(child);
@@ -325,6 +359,10 @@ function EmployeeDashboard({ handleLogout }) {
                 ) : activeTab === 'room-availability' ? (
                     <div className="flex-1">
                         <RoomAvailability />
+                    </div>
+                ) : activeTab === 'add-incidents' ? (
+                    <div className="flex-1">
+                        <IncidentManagementSystem />
                     </div>
                 ) : null}
             </main>
