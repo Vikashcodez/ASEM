@@ -853,32 +853,6 @@ export const releaseIncident = async (req, res) => {
                 );
             }
             
-            // Optional: Insert into audit log if you have an audit table
-            const auditQuery = `
-                INSERT INTO incident_audit_log (
-                    incident_id, 
-                    action, 
-                    changed_by, 
-                    release_notes,
-                    created_at
-                ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-            `;
-            
-            // Only insert audit log if table exists and data is provided
-            if (closed_by || release_notes) {
-                try {
-                    await client.query(auditQuery, [
-                        id,
-                        'RELEASE/CLOSE',
-                        closed_by || null,
-                        release_notes || 'Incident released/closed'
-                    ]);
-                } catch (auditError) {
-                    // Log audit error but don't fail the main operation
-                    console.warn('Audit log insertion failed:', auditError.message);
-                }
-            }
-            
             await client.query('COMMIT');
             
             res.status(200).json({

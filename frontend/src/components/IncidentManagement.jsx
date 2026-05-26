@@ -407,16 +407,25 @@ function Incidents() {
     }
   };
 
-  const handleStatusUpdate = async (id, newStatus) => {
+  const handleReleaseIncident = async (id) => {
+    if (!window.confirm('Are you sure you want to release this incident?')) return;
+
     try {
       setTogglingId(id);
-      await axios.patch(`${incidentsApi}/${id}/status`, { incident_status: newStatus }, getAuthConfig());
-      setMessage({ type: 'success', text: `Incident status updated to ${newStatus}` });
+      await axios.put(
+        `${incidentsApi}/${id}/release`,
+        {
+          release_notes: 'Incident released from incident management',
+          closed_by: user?.id ? Number(user.id) : null
+        },
+        getAuthConfig()
+      );
+      setMessage({ type: 'success', text: 'Incident released successfully' });
       await fetchIncidents();
       await fetchStats();
       await fetchStatusSummary();
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update status' });
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to release incident' });
     } finally {
       setTogglingId(null);
     }
@@ -1253,18 +1262,17 @@ function Incidents() {
                               <Eye className="w-3 h-3" />
                               View
                             </button>
-                            <select
-                              value=""
-                              onChange={(e) => handleStatusUpdate(incident.id, e.target.value)}
-                              disabled={togglingId === incident.id}
-                              className="px-3 py-2 text-sm font-medium border rounded-lg focus:ring-2 focus:ring-red-500"
+                            <button
+                              onClick={() => handleReleaseIncident(incident.id)}
+                              disabled={togglingId === incident.id || incident.incident_status === 'CLOSED'}
+                              className="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50"
                             >
-                              <option value="">Update Status</option>
-                              <option value="OPEN">Open</option>
-                              <option value="IN_PROGRESS">In Progress</option>
-                              <option value="RESOLVED">Resolved</option>
-                              <option value="CLOSED">Closed</option>
-                            </select>
+                              {togglingId === incident.id ? (
+                                <Loader className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Check className="w-3 h-3" />
+                              )}
+                            </button>
                             <button
                               onClick={() => handleEdit(incident)}
                               className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
@@ -1367,21 +1375,20 @@ function Incidents() {
             </div>
             
             <div className="p-6">
-              {/* Status Update Buttons */}
+              {/* Release Action */}
               <div className="mb-6 flex gap-2 flex-wrap">
-                {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map(status => (
-                  <button
-                    key={status}
-                    onClick={() => handleStatusUpdate(selectedIncident.id, status)}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
-                      selectedIncident.incident_status === status
-                        ? 'bg-[#0B1D3A] text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {status.replace('_', ' ')}
-                  </button>
-                ))}
+                <button
+                  onClick={() => handleReleaseIncident(selectedIncident.id)}
+                  disabled={togglingId === selectedIncident.id || selectedIncident.incident_status === 'CLOSED'}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {togglingId === selectedIncident.id ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  Release Incident
+                </button>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
