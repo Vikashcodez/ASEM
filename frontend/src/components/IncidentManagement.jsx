@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import {
   Plus,
@@ -53,6 +54,10 @@ function Incidents() {
   // State Management
   const [incidents, setIncidents] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [hierarchy, setHierarchy] = useState([]);
+  const [selectedTerminal, setSelectedTerminal] = useState('');
+  const [selectedBlock, setSelectedBlock] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -176,8 +181,12 @@ function Incidents() {
 
   const fetchRooms = async () => {
     try {
-      const response = await axios.get(roomsApi, getAuthConfig());
-      setRooms(response.data.data || []);
+      // fetch full hierarchy (terminals -> blocks -> floors -> rooms)
+      const response = await axios.get(`${roomsApi}/hierarchy`, getAuthConfig());
+      const data = response.data?.data || [];
+      setHierarchy(data);
+      // keep backward-compatible flat rooms list (empty until a floor is selected)
+      setRooms([]);
     } catch (err) {
       console.error('Error fetching rooms:', err);
     }
@@ -266,7 +275,13 @@ function Incidents() {
       reported_by: ''
     });
     setEditingId(null);
+    setSelectedTerminal('');
+    setSelectedBlock('');
+    setSelectedFloor('');
+    setRooms([]);
   };
+
+  const { user } = useAuth();
 
   // ref for title input so we can focus without scrolling
   const titleRef = useRef(null);
@@ -308,7 +323,17 @@ function Incidents() {
     try {
       setSaving(true);
       setMessage({ type: '', text: '' });
-      
+      // Validate against room capacity if available
+      const selectedRoomObj = roomsList.find(r => String(r.room_id) === String(formData.room_id));
+      const capacity = selectedRoomObj ? (selectedRoomObj.max_capacity ?? selectedRoomObj.max_capacity) : null;
+      const totalPeople = parseInt(formData.total_people) || 0;
+
+      if (capacity !== null && capacity !== undefined && totalPeople > Number(capacity)) {
+        setMessage({ type: 'error', text: `People Allocated exceeds room capacity (${capacity})` });
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         room_id: parseInt(formData.room_id),
         incident_type: formData.incident_type,
@@ -317,8 +342,9 @@ function Incidents() {
         description: formData.description || null,
         severity_level: formData.severity_level,
         incident_status: formData.incident_status,
-        total_people: parseInt(formData.total_people) || 0,
-        reported_by: formData.reported_by ? parseInt(formData.reported_by) : null
+        total_people: totalPeople,
+        // reported_by taken from authenticated user
+        reported_by: user?.id ? Number(user.id) : null
       };
       
       if (editingId) {
@@ -355,6 +381,11 @@ function Incidents() {
       total_people: incident.total_people,
       reported_by: incident.reported_by || ''
     });
+    // populate hierarchical selectors when editing
+    const td = incident.room_details || {};
+    setSelectedTerminal(td.terminal_id || '');
+    setSelectedBlock(td.block_id || '');
+    setSelectedFloor(td.floor_id || '');
     setActiveTab('form');
   };
 
@@ -449,6 +480,12 @@ function Incidents() {
   const currentItems = incidents.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(incidents.length / itemsPerPage);
 
+  // Hierarchical options derived from fetched hierarchy
+  const terminals = hierarchy || [];
+  const blocks = selectedTerminal ? (hierarchy.find(t => String(t.terminal_id) === String(selectedTerminal))?.blocks || []) : [];
+  const floors = selectedBlock ? (blocks.find(b => String(b.block_id) === String(selectedBlock))?.floors || []) : [];
+  const roomsList = selectedFloor ? (floors.find(f => String(f.floor_id) === String(selectedFloor))?.rooms || []) : [];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -483,7 +520,7 @@ function Incidents() {
                 <div className="backdrop-blur-sm bg-white/10 rounded-2xl p-4 border border-white/20">
                   <Users className="w-5 h-5 mb-2 text-blue-300" />
                   <div className="text-2xl font-bold">{stats.total_people_affected}</div>
-                  <div className="text-xs text-white/80 mt-1">People Affected</div>
+                  <div className="text-xs text-white/80 mt-1">People Allocated</div>
                 </div>
                 <div className="backdrop-blur-sm bg-white/10 rounded-2xl p-4 border border-white/20">
                   <CheckCircle className="w-5 h-5 mb-2 text-green-300" />
@@ -598,7 +635,7 @@ function Incidents() {
                   </div>
                   <span className="text-2xl font-bold text-gray-900">{stats.total_people_affected}</span>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-700">People Affected</h3>
+                <h3 className="text-sm font-semibold text-gray-700">People Allocated</h3>
                 <p className="text-xs text-gray-500 mt-1">Total impacted individuals</p>
               </div>
 
@@ -739,23 +776,83 @@ function Incidents() {
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Location (Room) <span className="text-red-500">*</span>
+                      Location (Terminal → Block → Floor → Room) <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative">
-                      <DoorOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <select
-                        name="room_id"
-                        value={formData.room_id}
-                        onChange={handleInputChange}
-                        className="w-full pl-10 rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition-all focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                      >
-                        <option value="">Select Room</option>
-                        {rooms.map(room => (
-                          <option key={room.id} value={room.id}>
-                            {room.room_name} ({room.room_code}) - {room.terminal_name || 'No Terminal'}
-                          </option>
-                        ))}
-                      </select>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Terminal</label>
+                        <select
+                          value={selectedTerminal}
+                          onChange={(e) => {
+                            setSelectedTerminal(e.target.value);
+                            setSelectedBlock('');
+                            setSelectedFloor('');
+                            setFormData(prev => ({ ...prev, room_id: '' }));
+                          }}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+                        >
+                          <option value="">Select Terminal</option>
+                          {terminals.map(t => (
+                            <option key={t.terminal_id} value={t.terminal_id}>{t.terminal_name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Block</label>
+                        <select
+                          value={selectedBlock}
+                          onChange={(e) => {
+                            setSelectedBlock(e.target.value);
+                            setSelectedFloor('');
+                            setFormData(prev => ({ ...prev, room_id: '' }));
+                          }}
+                          disabled={!selectedTerminal}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm disabled:opacity-60"
+                        >
+                          <option value="">Select Block</option>
+                          {blocks.map(b => (
+                            <option key={b.block_id} value={b.block_id}>{b.block_name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Floor</label>
+                        <select
+                          value={selectedFloor}
+                          onChange={(e) => {
+                            setSelectedFloor(e.target.value);
+                            setFormData(prev => ({ ...prev, room_id: '' }));
+                          }}
+                          disabled={!selectedBlock}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm disabled:opacity-60"
+                        >
+                          <option value="">Select Floor</option>
+                          {floors.map(f => (
+                            <option key={f.floor_id} value={f.floor_id}>{f.floor_name || (`Level ${f.floor_number}`)}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Room</label>
+                        <select
+                          name="room_id"
+                          value={formData.room_id}
+                          onChange={(e) => setFormData(prev => ({ ...prev, room_id: e.target.value }))}
+                          disabled={!selectedFloor}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm disabled:opacity-60"
+                        >
+                          <option value="">Select Room</option>
+                          {roomsList.map(room => (
+                            <option key={room.room_id} value={room.room_id}>
+                              {room.room_name} {room.room_code ? `(${room.room_code})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                   
@@ -833,7 +930,7 @@ function Incidents() {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        People Affected
+                        People Allocated
                       </label>
                       <input
                         type="number"
@@ -865,27 +962,7 @@ function Incidents() {
                     </select>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Reported By (Employee)
-                    </label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <select
-                        name="reported_by"
-                        value={formData.reported_by}
-                        onChange={handleInputChange}
-                        className="w-full pl-10 rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition-all focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                      >
-                        <option value="">Select Employee</option>
-                        {employees.map(emp => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.first_name} {emp.last_name} - {emp.designation}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                  {/* Reported By is set from authenticated user; field removed from UI */}
                   
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1337,7 +1414,7 @@ function Incidents() {
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">People Affected:</span>
+                        <span className="text-gray-500">People Allocated:</span>
                         <span className="font-medium">{selectedIncident.total_people}</span>
                       </div>
                     </div>

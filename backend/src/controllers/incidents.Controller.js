@@ -98,7 +98,7 @@ export const createIncident = async (req, res) => {
             await pool.query(
                 `UPDATE rooms SET 
                     current_occupancy = current_occupancy + $1,
-                    room_status = 'INCIDENT'
+                    room_status = 'OCCUPIED'
                  WHERE id = $2`,
                 [total_people, room_id]
             );
@@ -218,7 +218,7 @@ export const getAllIncidents = async (req, res) => {
                             'employee_id', e.id,
                             'employee_name', CONCAT(e.first_name, ' ', e.last_name),
                             'email', e.email,
-                            'phone', e.phone
+                            'phone', e.contact_number
                         )
                     ELSE NULL
                 END as reported_by_details
@@ -310,12 +310,10 @@ async function getIncidentWithRelations(incidentId) {
             CASE 
                 WHEN i.reported_by IS NOT NULL THEN 
                     jsonb_build_object(
-                        'employee_id', e.id,
-                        'employee_name', CONCAT(e.first_name, ' ', e.last_name),
-                        'email', e.email,
-                        'phone', e.phone,
-                        'department', e.department,
-                        'designation', e.designation
+                                'employee_id', e.id,
+                            'employee_name', CONCAT(e.first_name, ' ', e.last_name),
+                            'email', e.email,
+                                    'phone', e.contact_number
                     )
                 ELSE NULL
             END as reported_by_details
@@ -393,7 +391,7 @@ export const updateIncident = async (req, res) => {
                 await pool.query(
                     `UPDATE rooms SET 
                         current_occupancy = current_occupancy + $1,
-                        room_status = 'INCIDENT'
+                        room_status = 'OCCUPIED'
                      WHERE id = $2`,
                     [newPeople, room_id]
                 );
