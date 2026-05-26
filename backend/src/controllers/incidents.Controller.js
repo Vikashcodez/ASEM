@@ -786,3 +786,109 @@ export const updateIncidentStatus = async (req, res) => {
         });
     }
 };
+
+// ==================== RELEASE INCIDENT ====================
+export const releaseIncident = async (req, res) => {
+    try {
+        const { id } = req.params; // Incident ID from URL params
+        const { release_notes, closed_by } = req.body; // Optional fields for tracking closure
+
+        // Start a transaction
+        const client = await pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+
+            // Check if incident exists and is not already closed
+            const checkQuery = `
+                SELECT id, incident_status, incident_code 
+                FROM Incidents 
+                WHERE id = $1 AND is_active = true
+            `;
+            const checkResult = await client.query(checkQuery, [id]);
+            
+            if (checkResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({
+                    success: false,
+                    message: 'Incident not found or already inactive'
+                });
+            }
+            
+            const incident = checkResult.rows[0];
+            
+            if (incident.incident_status === 'CLOSED') {
+                await client.query('ROLLBACK');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Incident is already closed'
+                });
+            }
+
+            // Update incident status to CLOSED
+            const updateQuery = `
+                UPDATE Incidents 
+                SET 
+                    incident_status = 'CLOSED',
+                    released_date = COALESCE($1, CURRENT_TIMESTAMP),
+                    updated_at = CURRENT_TIMESTAMP,
+                    is_active = false
+                WHERE id = $2
+                RETURNING *
+            `;
+            
+            const updateResult = await client.query(updateQuery, [
+                new Date(), // released_date
+                id
+            ]);
+            
+            // Optional: Insert into audit log if you have an audit table
+            const auditQuery = `
+                INSERT INTO incident_audit_log (
+                    incident_id, 
+                    action, 
+                    changed_by, 
+                    release_notes,
+                    created_at
+                ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            `;
+            
+            // Only insert audit log if table exists and data is provided
+            if (closed_by || release_notes) {
+                try {
+                    await client.query(auditQuery, [
+                        id,
+                        'RELEASE/CLOSE',
+                        closed_by || null,
+                        release_notes || 'Incident released/closed'
+                    ]);
+                } catch (auditError) {
+                    // Log audit error but don't fail the main operation
+                    console.warn('Audit log insertion failed:', auditError.message);
+                }
+            }
+            
+            await client.query('COMMIT');
+            
+            res.status(200).json({
+                success: true,
+                message: 'Incident released and closed successfully',
+                data: updateResult.rows[0]
+            });
+            
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+        
+    } catch (error) {
+        console.error('Error releasing incident:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error while releasing incident',
+            error: error.message
+        });
+    }
+};

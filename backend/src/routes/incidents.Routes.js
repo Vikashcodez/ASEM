@@ -8,7 +8,8 @@ import {
     permanentDeleteIncident,
     getIncidentStatistics,
     getIncidentsByRoom,
-    updateIncidentStatus
+    updateIncidentStatus,
+    releaseIncident
 } from '../controllers/incidents.Controller.js';
 
 const incidentsRouter = express.Router();
@@ -19,6 +20,7 @@ incidentsRouter.get('/', getAllIncidents);
 incidentsRouter.get('/statistics', getIncidentStatistics);
 incidentsRouter.get('/:id', getIncidentById);
 incidentsRouter.put('/:id', updateIncident);
+incidentsRouter.put('/:id/release', releaseIncident);
 incidentsRouter.patch('/:id/status', updateIncidentStatus);
 incidentsRouter.delete('/:id', deleteIncident);
 incidentsRouter.delete('/:id/permanent', permanentDeleteIncident);
