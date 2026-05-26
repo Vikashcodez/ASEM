@@ -877,3 +877,143 @@ export const releaseIncident = async (req, res) => {
         });
     }
 };
+
+//======================= INCIDENT REPORTING =======================
+export const getIncidentReports = async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            incident_status,
+            severity_level,
+            incident_type,
+            room_id,
+            from_date,
+            to_date,
+            search,
+            is_active // New filter parameter
+        } = req.query;
+
+        const offset = (page - 1) * limit;
+        let queryParams = [];
+        let whereConditions = [];
+        let paramIndex = 1;
+
+        // Apply filters - removed the 'i.is_active = true' condition
+        if (is_active !== undefined) {
+            // If is_active filter is provided, use it
+            whereConditions.push(`i.is_active = $${paramIndex++}`);
+            queryParams.push(is_active === 'true' || is_active === true);
+        }
+        // If no is_active filter, return ALL incidents (both true and false)
+
+        if (incident_status) {
+            whereConditions.push(`i.incident_status = $${paramIndex++}`);
+            queryParams.push(incident_status);
+        }
+
+        if (severity_level) {
+            whereConditions.push(`i.severity_level = $${paramIndex++}`);
+            queryParams.push(severity_level);
+        }
+
+        if (incident_type) {
+            whereConditions.push(`i.incident_type = $${paramIndex++}`);
+            queryParams.push(incident_type);
+        }
+
+        if (room_id) {
+            whereConditions.push(`i.room_id = $${paramIndex++}`);
+            queryParams.push(room_id);
+        }
+
+        if (from_date) {
+            whereConditions.push(`DATE(i.created_at) >= $${paramIndex++}`);
+            queryParams.push(from_date);
+        }
+
+        if (to_date) {
+            whereConditions.push(`DATE(i.created_at) <= $${paramIndex++}`);
+            queryParams.push(to_date);
+        }
+
+        if (search) {
+            whereConditions.push(`(
+                i.incident_code ILIKE $${paramIndex++} OR
+                i.incident_title ILIKE $${paramIndex++} OR
+                i.description ILIKE $${paramIndex++} OR
+                i.incident_type ILIKE $${paramIndex++}
+            )`);
+            const searchPattern = `%${search}%`;
+            queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+
+        const whereClause = whereConditions.length > 0 
+            ? `WHERE ${whereConditions.join(' AND ')}`
+            : '';
+
+        // Get total count
+        const countResult = await pool.query(
+            `SELECT COUNT(*) FROM incidents i ${whereClause}`,
+            queryParams
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        // Get paginated incidents with relations
+        queryParams.push(limit, offset);
+        const result = await pool.query(
+            `SELECT 
+                i.*,
+                jsonb_build_object(
+                    'room_id', r.id,
+                    'room_name', r.room_name,
+                    'room_code', r.room_code,
+                    'floor_id', f.id,
+                    'floor_name', f.floor_name,
+                    'block_id', b.id,
+                    'block_name', b.block_name,
+                    'terminal_id', t.id,
+                    'terminal_name', t.terminal_name
+                ) as room_details,
+                CASE 
+                    WHEN i.reported_by IS NOT NULL THEN 
+                        jsonb_build_object(
+                            'employee_id', e.id,
+                            'employee_name', CONCAT(e.first_name, ' ', e.last_name),
+                            'email', e.email,
+                            'phone', e.contact_number
+                        )
+                    ELSE NULL
+                END as reported_by_details
+            FROM incidents i
+            LEFT JOIN rooms r ON i.room_id = r.id
+            LEFT JOIN floors f ON r.floor_id = f.id
+            LEFT JOIN blocks b ON r.block_id = b.id
+            LEFT JOIN terminals t ON r.terminal_id = t.id
+            LEFT JOIN employees e ON i.reported_by = e.id
+            ${whereClause}
+            ORDER BY i.created_at DESC
+            LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+            queryParams
+        );
+
+        res.status(200).json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching incidents:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching incidents',
+            error: error.message
+        });
+    }
+};

@@ -9,7 +9,8 @@ import {
     getIncidentStatistics,
     getIncidentsByRoom,
     updateIncidentStatus,
-    releaseIncident
+    releaseIncident,
+    getIncidentReports
 } from '../controllers/incidents.Controller.js';
 
 const incidentsRouter = express.Router();
@@ -17,6 +18,7 @@ const incidentsRouter = express.Router();
 // Incident CRUD routes
 incidentsRouter.post('/', createIncident);
 incidentsRouter.get('/', getAllIncidents);
+incidentsRouter.get('/reports', getIncidentReports);
 incidentsRouter.get('/statistics', getIncidentStatistics);
 incidentsRouter.get('/:id', getIncidentById);
 incidentsRouter.put('/:id', updateIncident);
