@@ -139,6 +139,7 @@ await client.query(`
         severity_level VARCHAR(50),
         incident_status VARCHAR(50) DEFAULT 'OPEN',
         total_people INT DEFAULT 0,
+        released_date TIMESTAMP,
         reported_by INT REFERENCES employees(id) ON DELETE SET NULL,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
