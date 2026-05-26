@@ -8,6 +8,7 @@ import Floors from '../components/floors';
 import Rooms from '../components/rooms';
 import RoomAvailability from '../components/RoomsAvaiblity';
 import Availability from '../components/RoomsAvaiblity';
+import IncidentDashboard from '../components/incidentDashboard';
 import IncidentManagementSystem from '../components/IncidentManagement';
 
 function EmployeeDashboard({ handleLogout }) {
@@ -42,6 +43,19 @@ function EmployeeDashboard({ handleLogout }) {
                 </svg>
             ),
             children: [
+                {
+                    id: 'incident-reports',
+                    label: 'Incident Reports',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 19h16" />
+                            <path d="M5 17V9" />
+                            <path d="M9 17V5" />
+                            <path d="M13 17v-7" />
+                            <path d="M17 17v-3" />
+                        </svg>
+                    )
+                },
                 {
                     id: 'add-incidents',
                     label: 'Add Incidents',
@@ -360,6 +374,10 @@ function EmployeeDashboard({ handleLogout }) {
                 ) : activeTab === 'room-availability' ? (
                     <div className="flex-1">
                         <RoomAvailability />
+                    </div>
+                ) : activeTab === 'incident-reports' ? (
+                    <div className="flex-1">
+                        <IncidentDashboard />
                     </div>
                 ) : activeTab === 'add-incidents' ? (
                     <div className="flex-1">
