@@ -841,6 +841,17 @@ export const releaseIncident = async (req, res) => {
                 new Date(), // released_date
                 id
             ]);
+
+            if (updateResult.rows[0]?.room_id) {
+                await client.query(
+                    `UPDATE rooms
+                     SET room_status = 'AVAILABLE',
+                         current_occupancy = 0,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = $1`,
+                    [updateResult.rows[0].room_id]
+                );
+            }
             
             // Optional: Insert into audit log if you have an audit table
             const auditQuery = `
