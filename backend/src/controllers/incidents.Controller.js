@@ -661,3 +661,49 @@ export const getActiveIncidentsWithoutRoomAllocation = async (req, res) => {
     }
 };
 
+// ==================== GET ACTIVE INCIDENTS with Room Allocation ====================
+export const getActiveIncidentsWithRoomAllocation = async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                i.*,
+                (
+                    SELECT CONCAT(first_name, ' ', last_name)
+                    FROM employees
+                    WHERE id = i.reported_by
+                ) as reported_by_name,
+                (
+                    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                        'allocation_id', ira.id,
+                        'room_id', ira.room_id,
+                        'no_of_people', ira.no_of_people,
+                        'note', ira.note,
+                        'allocated_at', ira.allocated_at,
+                        'deallocated_at', ira.deallocated_at,
+                        'allocated_by', CASE WHEN ae.id IS NOT NULL THEN jsonb_build_object('employee_id', ae.id, 'employee_name', CONCAT(ae.first_name, ' ', ae.last_name)) ELSE NULL END
+                    )), '[]'::jsonb)
+                    FROM incident_room_allocations ira
+                    LEFT JOIN employees ae ON ira.allocated_by = ae.id
+                    WHERE ira.incident_id = i.id
+                ) as room_allocations
+            FROM incidents i
+            WHERE i.is_active = true 
+            AND i.is_room_allocated = true
+            ORDER BY i.created_at DESC
+        `);
+
+        res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching active incidents with room allocation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+

@@ -9,7 +9,8 @@ import {
     getIncidentStatistics,
     getIncidentsByRoom,
     updateIncidentStatus,
-    getActiveIncidentsWithoutRoomAllocation
+    getActiveIncidentsWithoutRoomAllocation,
+    getActiveIncidentsWithRoomAllocation
     // releaseIncident,
     // getIncidentReports
 } from '../controllers/incidents.Controller.js';
@@ -20,6 +21,7 @@ const incidentsRouter = express.Router();
 incidentsRouter.post('/', createIncident);
 incidentsRouter.get('/', getAllIncidents);
 incidentsRouter.get('/active', getActiveIncidentsWithoutRoomAllocation);
+incidentsRouter.get('/active/with-room-allocation', getActiveIncidentsWithRoomAllocation);
 // incidentsRouter.get('/reports', getIncidentReports);
 incidentsRouter.get('/status/summary', getIncidentStatistics);
 incidentsRouter.get('/statistics', getIncidentStatistics);
