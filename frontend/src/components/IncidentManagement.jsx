@@ -15,14 +15,12 @@ import {
   EyeOff,
   Loader,
   Grid,
-  DoorOpen,
   Activity,
   Calendar,
   Hash,
   FileText,
   ChevronLeft,
   ChevronRight,
-  Building2,
   Tag,
   Link as LinkIcon,
   TrendingUp,
@@ -32,8 +30,6 @@ import {
   UserX,
   AlertTriangle,
   Check,
-  Home,
-  Layers,
   Clock,
   BarChart3,
   MapPin,
@@ -47,17 +43,11 @@ import {
 } from 'lucide-react';
 
 const incidentsApi = `${import.meta.env.VITE_API_URL}/incidents`;
-const roomsApi = `${import.meta.env.VITE_API_URL}/rooms`;
 const employeesApi = `${import.meta.env.VITE_API_URL}/employees`;
 
 function Incidents() {
   // State Management
   const [incidents, setIncidents] = useState([]);
-  const [rooms, setRooms] = useState([]);
-  const [hierarchy, setHierarchy] = useState([]);
-  const [selectedTerminal, setSelectedTerminal] = useState('');
-  const [selectedBlock, setSelectedBlock] = useState('');
-  const [selectedFloor, setSelectedFloor] = useState('');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,14 +82,12 @@ function Incidents() {
   
   // Form Data
   const [formData, setFormData] = useState({
-    room_id: '',
     incident_type: '',
     incident_title: '',
     location_details: '',
     description: '',
     severity_level: 'MEDIUM',
     incident_status: 'OPEN',
-    total_people: 0,
     reported_by: ''
   });
 
@@ -126,7 +114,6 @@ function Incidents() {
 
   useEffect(() => {
     fetchIncidents();
-    fetchRooms();
     fetchEmployees();
     fetchStats();
     fetchIncidentTypes();
@@ -176,19 +163,6 @@ function Incidents() {
       setStatusSummary(response.data.data || []);
     } catch (err) {
       console.error('Error fetching status summary:', err);
-    }
-  };
-
-  const fetchRooms = async () => {
-    try {
-      // fetch full hierarchy (terminals -> blocks -> floors -> rooms)
-      const response = await axios.get(`${roomsApi}/hierarchy`, getAuthConfig());
-      const data = response.data?.data || [];
-      setHierarchy(data);
-      // keep backward-compatible flat rooms list (empty until a floor is selected)
-      setRooms([]);
-    } catch (err) {
-      console.error('Error fetching rooms:', err);
     }
   };
 
@@ -264,21 +238,15 @@ function Incidents() {
 
   const resetForm = () => {
     setFormData({
-      room_id: '',
       incident_type: '',
       incident_title: '',
       location_details: '',
       description: '',
       severity_level: 'MEDIUM',
       incident_status: 'OPEN',
-      total_people: 0,
       reported_by: ''
     });
     setEditingId(null);
-    setSelectedTerminal('');
-    setSelectedBlock('');
-    setSelectedFloor('');
-    setRooms([]);
   };
 
   const { user } = useAuth();
@@ -305,11 +273,6 @@ function Incidents() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.room_id) {
-      setMessage({ type: 'error', text: 'Please select a room' });
-      return;
-    }
-    
     if (!formData.incident_type) {
       setMessage({ type: 'error', text: 'Incident type is required' });
       return;
@@ -323,26 +286,14 @@ function Incidents() {
     try {
       setSaving(true);
       setMessage({ type: '', text: '' });
-      // Validate against room capacity if available
-      const selectedRoomObj = roomsList.find(r => String(r.room_id) === String(formData.room_id));
-      const capacity = selectedRoomObj ? (selectedRoomObj.max_capacity ?? selectedRoomObj.max_capacity) : null;
-      const totalPeople = parseInt(formData.total_people) || 0;
-
-      if (capacity !== null && capacity !== undefined && totalPeople > Number(capacity)) {
-        setMessage({ type: 'error', text: `People Allocated exceeds room capacity (${capacity})` });
-        setSaving(false);
-        return;
-      }
 
       const payload = {
-        room_id: parseInt(formData.room_id),
         incident_type: formData.incident_type,
         incident_title: formData.incident_title.trim(),
         location_details: formData.location_details || null,
         description: formData.description || null,
         severity_level: formData.severity_level,
         incident_status: formData.incident_status,
-        total_people: totalPeople,
         // reported_by taken from authenticated user
         reported_by: user?.id ? Number(user.id) : null
       };
@@ -371,21 +322,14 @@ function Incidents() {
   const handleEdit = (incident) => {
     setEditingId(incident.id);
     setFormData({
-      room_id: incident.room_id,
       incident_type: incident.incident_type,
       incident_title: incident.incident_title,
       location_details: incident.location_details || '',
       description: incident.description || '',
       severity_level: incident.severity_level,
       incident_status: incident.incident_status,
-      total_people: incident.total_people,
       reported_by: incident.reported_by || ''
     });
-    // populate hierarchical selectors when editing
-    const td = incident.room_details || {};
-    setSelectedTerminal(td.terminal_id || '');
-    setSelectedBlock(td.block_id || '');
-    setSelectedFloor(td.floor_id || '');
     setActiveTab('form');
   };
 
@@ -488,12 +432,6 @@ function Incidents() {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = incidents.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(incidents.length / itemsPerPage);
-
-  // Hierarchical options derived from fetched hierarchy
-  const terminals = hierarchy || [];
-  const blocks = selectedTerminal ? (hierarchy.find(t => String(t.terminal_id) === String(selectedTerminal))?.blocks || []) : [];
-  const floors = selectedBlock ? (blocks.find(b => String(b.block_id) === String(selectedBlock))?.floors || []) : [];
-  const roomsList = selectedFloor ? (floors.find(f => String(f.floor_id) === String(selectedFloor))?.rooms || []) : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -785,88 +723,6 @@ function Incidents() {
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Location (Terminal → Block → Floor → Room) <span className="text-red-500">*</span>
-                    </label>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Terminal</label>
-                        <select
-                          value={selectedTerminal}
-                          onChange={(e) => {
-                            setSelectedTerminal(e.target.value);
-                            setSelectedBlock('');
-                            setSelectedFloor('');
-                            setFormData(prev => ({ ...prev, room_id: '' }));
-                          }}
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-                        >
-                          <option value="">Select Terminal</option>
-                          {terminals.map(t => (
-                            <option key={t.terminal_id} value={t.terminal_id}>{t.terminal_name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Block</label>
-                        <select
-                          value={selectedBlock}
-                          onChange={(e) => {
-                            setSelectedBlock(e.target.value);
-                            setSelectedFloor('');
-                            setFormData(prev => ({ ...prev, room_id: '' }));
-                          }}
-                          disabled={!selectedTerminal}
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm disabled:opacity-60"
-                        >
-                          <option value="">Select Block</option>
-                          {blocks.map(b => (
-                            <option key={b.block_id} value={b.block_id}>{b.block_name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Floor</label>
-                        <select
-                          value={selectedFloor}
-                          onChange={(e) => {
-                            setSelectedFloor(e.target.value);
-                            setFormData(prev => ({ ...prev, room_id: '' }));
-                          }}
-                          disabled={!selectedBlock}
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm disabled:opacity-60"
-                        >
-                          <option value="">Select Floor</option>
-                          {floors.map(f => (
-                            <option key={f.floor_id} value={f.floor_id}>{f.floor_name || (`Level ${f.floor_number}`)}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Room</label>
-                        <select
-                          name="room_id"
-                          value={formData.room_id}
-                          onChange={(e) => setFormData(prev => ({ ...prev, room_id: e.target.value }))}
-                          disabled={!selectedFloor}
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm disabled:opacity-60"
-                        >
-                          <option value="">Select Room</option>
-                          {roomsList.map(room => (
-                            <option key={room.room_id} value={room.room_id}>
-                              {room.room_name} {room.room_code ? `(${room.room_code})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Incident Type <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -920,36 +776,21 @@ function Incidents() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Severity Level
-                      </label>
-                      <select
-                        name="severity_level"
-                        value={formData.severity_level}
-                        onChange={handleInputChange}
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition-all focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                      >
-                        <option value="LOW">Low</option>
-                        <option value="MEDIUM">Medium</option>
-                        <option value="HIGH">High</option>
-                        <option value="CRITICAL">Critical</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        People Allocated
-                      </label>
-                      <input
-                        type="number"
-                        name="total_people"
-                        value={formData.total_people}
-                        onChange={handleInputChange}
-                        min="0"
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition-all focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Severity Level
+                    </label>
+                    <select
+                      name="severity_level"
+                      value={formData.severity_level}
+                      onChange={handleInputChange}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition-all focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                    >
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
+                      <option value="CRITICAL">Critical</option>
+                    </select>
                   </div>
                 </div>
                 
@@ -1095,19 +936,6 @@ function Incidents() {
                     <option value="OTHER">Other</option>
                   </select>
                   
-                  <select
-                    value={filters.room_id}
-                    onChange={(e) => handleFilterChange('room_id', e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="">All Rooms</option>
-                    {rooms.map(room => (
-                      <option key={room.id} value={room.id}>
-                        {room.room_name}
-                      </option>
-                    ))}
-                  </select>
-                  
                   <input
                     type="date"
                     value={filters.from_date}
@@ -1171,10 +999,8 @@ function Incidents() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Incident</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Severity</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">People</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Reported</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -1201,28 +1027,6 @@ function Incidents() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-4 align-top text-sm text-gray-600">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 font-medium text-gray-800">
-                              <DoorOpen className="w-4 h-4 text-gray-400" />
-                              <span>{incident.room_details?.room_name || '-'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 pl-6 text-xs text-gray-500">
-                              <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                              <span>{incident.room_details?.terminal_name || '-'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 pl-12 text-xs text-gray-500">
-                              <Layers className="w-3.5 h-3.5 text-gray-400" />
-                              <span>{incident.room_details?.block_name || '-'}</span>
-                            </div>
-                            {incident.location_details && (
-                              <div className="flex items-center gap-2 pl-16 text-xs text-gray-400">
-                                <MapPin className="w-3 h-3" />
-                                <span>{incident.location_details}</span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
                         <td className="px-4 py-4 align-top">
                           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ${getSeverityColor(incident.severity_level)}`}>
                             {getSeverityIcon(incident.severity_level)}
@@ -1234,10 +1038,6 @@ function Incidents() {
                             {getStatusIcon(incident.incident_status)}
                             {incident.incident_status.replace('_', ' ')}
                           </span>
-                        </td>
-                        <td className="px-4 py-4 align-top text-sm">
-                          <span className="font-semibold text-gray-900">{incident.total_people || 0}</span>
-                          <span className="text-gray-500 text-xs ml-1">affected</span>
                         </td>
                         <td className="px-4 py-4 align-top text-sm text-gray-600">
                           <div className="flex items-center gap-2">
@@ -1375,22 +1175,6 @@ function Incidents() {
             </div>
             
             <div className="p-6">
-              {/* Release Action */}
-              <div className="mb-6 flex gap-2 flex-wrap">
-                <button
-                  onClick={() => handleReleaseIncident(selectedIncident.id)}
-                  disabled={togglingId === selectedIncident.id || selectedIncident.incident_status === 'CLOSED'}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                >
-                  {togglingId === selectedIncident.id ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  Release Incident
-                </button>
-              </div>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div className="bg-gray-50 rounded-xl p-4">
@@ -1420,10 +1204,6 @@ function Incidents() {
                           {selectedIncident.incident_status.replace('_', ' ')}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">People Allocated:</span>
-                        <span className="font-medium">{selectedIncident.total_people}</span>
-                      </div>
                     </div>
                   </div>
                   
@@ -1433,22 +1213,6 @@ function Incidents() {
                       Location Information
                     </h3>
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Room:</span>
-                        <span className="font-medium">{selectedIncident.room_details?.room_name}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Terminal:</span>
-                        <span className="font-medium">{selectedIncident.room_details?.terminal_name}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Block:</span>
-                        <span className="font-medium">{selectedIncident.room_details?.block_name}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Floor:</span>
-                        <span className="font-medium">{selectedIncident.room_details?.floor_name}</span>
-                      </div>
                       {selectedIncident.location_details && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">Specific Location:</span>
