@@ -620,7 +620,7 @@ export const updateIncidentStatus = async (req, res) => {
 // ==================== GET ACTIVE INCIDENT ====================
 export const getActiveIncidentsWithoutRoomAllocation = async (req, res) => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             SELECT 
                 id,
                 incident_code,
@@ -636,7 +636,9 @@ export const getActiveIncidentsWithoutRoomAllocation = async (req, res) => {
                 created_at,
                 updated_at,
                 (
-                    SELECT name FROM employees WHERE id = incidents.reported_by
+                    SELECT CONCAT(first_name, ' ', last_name)
+                    FROM employees
+                    WHERE id = incidents.reported_by
                 ) as reported_by_name
             FROM Incidents
             WHERE is_active = true 

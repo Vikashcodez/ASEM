@@ -8,7 +8,6 @@ import {
     permanentDeleteIncident,
     getIncidentStatistics,
     getIncidentsByRoom,
-    getActiveIncident,
     updateIncidentStatus,
     getActiveIncidentsWithoutRoomAllocation
     // releaseIncident,
@@ -33,6 +32,6 @@ incidentsRouter.delete('/:id/permanent', permanentDeleteIncident);
 
 // Room specific incidents
 incidentsRouter.get('/rooms/:room_id', getIncidentsByRoom);
-incidentsRouter.get('/rooms/:room_id/active', getActiveIncident);
+
 
 export default incidentsRouter;
