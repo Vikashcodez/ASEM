@@ -107,20 +107,14 @@ await client.query(`
         terminal_id INT REFERENCES Terminals(id) ON DELETE CASCADE,
         block_id INT REFERENCES Blocks(id) ON DELETE CASCADE,
         floor_id INT REFERENCES Floors(id) ON DELETE CASCADE,
-
         room_name VARCHAR(100) NOT NULL,
         room_code VARCHAR(50) UNIQUE NOT NULL,
         room_type VARCHAR(100),
-
         max_capacity INT DEFAULT 0,
         current_occupancy INT DEFAULT 0,
-
         room_status VARCHAR(50) DEFAULT 'AVAILABLE',
-
         description TEXT,
-
         is_active BOOLEAN DEFAULT TRUE,
-
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -130,7 +124,6 @@ await client.query(`
 await client.query(`
     CREATE TABLE IF NOT EXISTS Incidents (
         id SERIAL PRIMARY KEY,
-        room_id INT REFERENCES Rooms(id) ON DELETE CASCADE,
         incident_code VARCHAR(100) UNIQUE NOT NULL,
         incident_type VARCHAR(100) NOT NULL,
         incident_title VARCHAR(200),
@@ -138,8 +131,6 @@ await client.query(`
         description TEXT,
         severity_level VARCHAR(50),
         incident_status VARCHAR(50) DEFAULT 'OPEN',
-        total_people INT DEFAULT 0,
-        released_date TIMESTAMP,
         reported_by INT REFERENCES employees(id) ON DELETE SET NULL,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

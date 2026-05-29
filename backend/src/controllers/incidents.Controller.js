@@ -21,35 +21,20 @@ const generateIncidentCode = async () => {
 export const createIncident = async (req, res) => {
     try {
         const {
-            room_id,
             incident_type,
             incident_title,
             location_details,
             description,
             severity_level,
             incident_status,
-            total_people,
             reported_by
         } = req.body;
 
         // Validate required fields
-        if (!incident_type || !room_id) {
+        if (!incident_type) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields: incident_type and room_id are required'
-            });
-        }
-
-        // Check if room exists
-        const roomCheck = await pool.query(
-            'SELECT id, room_name FROM rooms WHERE id = $1 AND is_active = true',
-            [room_id]
-        );
-        
-        if (roomCheck.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Room not found or inactive'
+                message: 'Missing required field: incident_type is required'
             });
         }
 
@@ -74,13 +59,12 @@ export const createIncident = async (req, res) => {
         // Insert incident
         const result = await pool.query(
             `INSERT INTO incidents (
-                room_id, incident_code, incident_type, incident_title, 
+                incident_code, incident_type, incident_title, 
                 location_details, description, severity_level, 
-                incident_status, total_people, reported_by, is_active
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+                incident_status, reported_by, is_active
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
             RETURNING *`,
             [
-                room_id,
                 incident_code,
                 incident_type,
                 incident_title,
@@ -88,29 +72,14 @@ export const createIncident = async (req, res) => {
                 description,
                 severity_level,
                 incident_status || 'OPEN',
-                total_people || 0,
                 reported_by || null
             ]
         );
 
-        // Update room occupancy if needed
-        if (total_people && total_people > 0) {
-            await pool.query(
-                `UPDATE rooms SET 
-                    current_occupancy = current_occupancy + $1,
-                    room_status = 'OCCUPIED'
-                 WHERE id = $2`,
-                [total_people, room_id]
-            );
-        }
-
-        // Fetch complete incident with relations
-        const incident = await getIncidentWithRelations(result.rows[0].id);
-
         res.status(201).json({
             success: true,
             message: 'Incident created successfully',
-            data: incident
+            data: result.rows[0]
         });
 
     } catch (error) {
@@ -132,7 +101,6 @@ export const getAllIncidents = async (req, res) => {
             incident_status,
             severity_level,
             incident_type,
-            room_id,
             from_date,
             to_date,
             search
@@ -157,11 +125,6 @@ export const getAllIncidents = async (req, res) => {
         if (incident_type) {
             whereConditions.push(`i.incident_type = $${paramIndex++}`);
             queryParams.push(incident_type);
-        }
-
-        if (room_id) {
-            whereConditions.push(`i.room_id = $${paramIndex++}`);
-            queryParams.push(room_id);
         }
 
         if (from_date) {
@@ -201,17 +164,6 @@ export const getAllIncidents = async (req, res) => {
         const result = await pool.query(
             `SELECT 
                 i.*,
-                jsonb_build_object(
-                    'room_id', r.id,
-                    'room_name', r.room_name,
-                    'room_code', r.room_code,
-                    'floor_id', f.id,
-                    'floor_name', f.floor_name,
-                    'block_id', b.id,
-                    'block_name', b.block_name,
-                    'terminal_id', t.id,
-                    'terminal_name', t.terminal_name
-                ) as room_details,
                 CASE 
                     WHEN i.reported_by IS NOT NULL THEN 
                         jsonb_build_object(
@@ -223,10 +175,6 @@ export const getAllIncidents = async (req, res) => {
                     ELSE NULL
                 END as reported_by_details
             FROM incidents i
-            LEFT JOIN rooms r ON i.room_id = r.id
-            LEFT JOIN floors f ON r.floor_id = f.id
-            LEFT JOIN blocks b ON r.block_id = b.id
-            LEFT JOIN terminals t ON r.terminal_id = t.id
             LEFT JOIN employees e ON i.reported_by = e.id
             ${whereClause}
             ORDER BY i.created_at DESC
@@ -289,39 +237,17 @@ async function getIncidentWithRelations(incidentId) {
     const result = await pool.query(
         `SELECT 
             i.*,
-            jsonb_build_object(
-                'room_id', r.id,
-                'room_name', r.room_name,
-                'room_code', r.room_code,
-                'room_type', r.room_type,
-                'max_capacity', r.max_capacity,
-                'current_occupancy', r.current_occupancy,
-                'room_status', r.room_status,
-                'floor_id', f.id,
-                'floor_name', f.floor_name,
-                'floor_number', f.floor_number,
-                'block_id', b.id,
-                'block_name', b.block_name,
-                'block_code', b.block_code,
-                'terminal_id', t.id,
-                'terminal_name', t.terminal_name,
-                'terminal_code', t.terminal_code
-            ) as room_details,
             CASE 
                 WHEN i.reported_by IS NOT NULL THEN 
                     jsonb_build_object(
-                                'employee_id', e.id,
-                            'employee_name', CONCAT(e.first_name, ' ', e.last_name),
-                            'email', e.email,
-                                    'phone', e.contact_number
+                        'employee_id', e.id,
+                        'employee_name', CONCAT(e.first_name, ' ', e.last_name),
+                        'email', e.email,
+                        'phone', e.contact_number
                     )
                 ELSE NULL
             END as reported_by_details
         FROM incidents i
-        LEFT JOIN rooms r ON i.room_id = r.id
-        LEFT JOIN floors f ON r.floor_id = f.id
-        LEFT JOIN blocks b ON r.block_id = b.id
-        LEFT JOIN terminals t ON r.terminal_id = t.id
         LEFT JOIN employees e ON i.reported_by = e.id
         WHERE i.id = $1 AND i.is_active = true`,
         [incidentId]
@@ -335,14 +261,12 @@ export const updateIncident = async (req, res) => {
     try {
         const { id } = req.params;
         const {
-            room_id,
             incident_type,
             incident_title,
             location_details,
             description,
             severity_level,
             incident_status,
-            total_people,
             reported_by
         } = req.body;
 
@@ -360,52 +284,6 @@ export const updateIncident = async (req, res) => {
         }
 
         const oldIncident = existingIncident.rows[0];
-
-        // If room_id is being changed, check new room
-        if (room_id && room_id !== oldIncident.room_id) {
-            const roomCheck = await pool.query(
-                'SELECT id FROM rooms WHERE id = $1 AND is_active = true',
-                [room_id]
-            );
-            
-            if (roomCheck.rows.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Room not found or inactive'
-                });
-            }
-
-            // Adjust room occupancy for old room
-            if (oldIncident.total_people > 0) {
-                await pool.query(
-                    `UPDATE rooms SET 
-                        current_occupancy = GREATEST(current_occupancy - $1, 0)
-                     WHERE id = $2`,
-                    [oldIncident.total_people, oldIncident.room_id]
-                );
-            }
-
-            // Adjust room occupancy for new room
-            if (total_people || oldIncident.total_people) {
-                const newPeople = total_people || oldIncident.total_people;
-                await pool.query(
-                    `UPDATE rooms SET 
-                        current_occupancy = current_occupancy + $1,
-                        room_status = 'OCCUPIED'
-                     WHERE id = $2`,
-                    [newPeople, room_id]
-                );
-            }
-        } else if (total_people !== undefined && total_people !== oldIncident.total_people) {
-            // Update occupancy if total_people changed
-            const peopleDiff = total_people - oldIncident.total_people;
-            await pool.query(
-                `UPDATE rooms SET 
-                    current_occupancy = current_occupancy + $1
-                 WHERE id = $2`,
-                [peopleDiff, oldIncident.room_id]
-            );
-        }
 
         // Check if employee exists
         if (reported_by) {
@@ -426,11 +304,6 @@ export const updateIncident = async (req, res) => {
         const updateFields = [];
         const queryParams = [];
         let paramIndex = 1;
-
-        if (room_id !== undefined) {
-            updateFields.push(`room_id = $${paramIndex++}`);
-            queryParams.push(room_id);
-        }
         if (incident_type !== undefined) {
             updateFields.push(`incident_type = $${paramIndex++}`);
             queryParams.push(incident_type);
@@ -454,10 +327,6 @@ export const updateIncident = async (req, res) => {
         if (incident_status !== undefined) {
             updateFields.push(`incident_status = $${paramIndex++}`);
             queryParams.push(incident_status);
-        }
-        if (total_people !== undefined) {
-            updateFields.push(`total_people = $${paramIndex++}`);
-            queryParams.push(total_people);
         }
         if (reported_by !== undefined) {
             updateFields.push(`reported_by = $${paramIndex++}`);
@@ -521,20 +390,6 @@ export const deleteIncident = async (req, res) => {
             [id]
         );
 
-        // Revert room occupancy
-        if (incidentData.total_people > 0) {
-            await pool.query(
-                `UPDATE rooms SET 
-                    current_occupancy = GREATEST(current_occupancy - $1, 0),
-                    room_status = CASE 
-                        WHEN (current_occupancy - $1) <= 0 THEN 'AVAILABLE'
-                        ELSE room_status
-                    END
-                 WHERE id = $2`,
-                [incidentData.total_people, incidentData.room_id]
-            );
-        }
-
         res.status(200).json({
             success: true,
             message: 'Incident deleted successfully'
@@ -572,20 +427,6 @@ export const permanentDeleteIncident = async (req, res) => {
 
         // Permanently delete the incident
         await pool.query('DELETE FROM incidents WHERE id = $1', [id]);
-
-        // Revert room occupancy if incident was active
-        if (incidentData.is_active && incidentData.total_people > 0) {
-            await pool.query(
-                `UPDATE rooms SET 
-                    current_occupancy = GREATEST(current_occupancy - $1, 0),
-                    room_status = CASE 
-                        WHEN (current_occupancy - $1) <= 0 THEN 'AVAILABLE'
-                        ELSE room_status
-                    END
-                 WHERE id = $2`,
-                [incidentData.total_people, incidentData.room_id]
-            );
-        }
 
         res.status(200).json({
             success: true,
@@ -627,7 +468,7 @@ export const getIncidentStatistics = async (req, res) => {
                 COUNT(*) FILTER (WHERE severity_level = 'MEDIUM') as medium_severity,
                 COUNT(*) FILTER (WHERE severity_level = 'HIGH') as high_severity,
                 COUNT(*) FILTER (WHERE severity_level = 'CRITICAL') as critical_severity,
-                SUM(total_people) as total_people_affected,
+                0 as total_people_affected,
                 AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/3600) as avg_resolution_hours
             FROM incidents 
             WHERE is_active = true ${dateFilter}`,
@@ -682,25 +523,9 @@ export const getIncidentStatistics = async (req, res) => {
 // ==================== GET INCIDENTS BY ROOM ====================
 export const getIncidentsByRoom = async (req, res) => {
     try {
-        const { room_id } = req.params;
-
-        const result = await pool.query(
-            `SELECT 
-                i.*,
-                jsonb_build_object(
-                    'employee_id', e.id,
-                    'employee_name', CONCAT(e.first_name, ' ', e.last_name)
-                ) as reported_by_details
-            FROM incidents i
-            LEFT JOIN employees e ON i.reported_by = e.id
-            WHERE i.room_id = $1 AND i.is_active = true
-            ORDER BY i.created_at DESC`,
-            [room_id]
-        );
-
-        res.status(200).json({
-            success: true,
-            data: result.rows
+        return res.status(400).json({
+            success: false,
+            message: 'Room-based incident lookup is not supported by the current incidents schema'
         });
 
     } catch (error) {
@@ -746,29 +571,6 @@ export const updateIncidentStatus = async (req, res) => {
             });
         }
 
-        // If incident is resolved/closed, update room status
-        if (incident_status === 'RESOLVED' || incident_status === 'CLOSED') {
-            const incident = result.rows[0];
-            
-            // Check if room has any other open incidents
-            const openIncidents = await pool.query(
-                `SELECT COUNT(*) FROM incidents 
-                 WHERE room_id = $1 
-                 AND incident_status IN ('OPEN', 'IN_PROGRESS')
-                 AND is_active = true`,
-                [incident.room_id]
-            );
-
-            if (parseInt(openIncidents.rows[0].count) === 0) {
-                await pool.query(
-                    `UPDATE rooms SET 
-                        room_status = 'AVAILABLE'
-                     WHERE id = $1`,
-                    [incident.room_id]
-                );
-            }
-        }
-
         const updatedIncident = await getIncidentWithRelations(id);
 
         res.status(200).json({
@@ -788,232 +590,156 @@ export const updateIncidentStatus = async (req, res) => {
 };
 
 // ==================== RELEASE INCIDENT ====================
-export const releaseIncident = async (req, res) => {
-    try {
-        const { id } = req.params; // Incident ID from URL params
-        const { release_notes, closed_by } = req.body; // Optional fields for tracking closure
+// export const releaseIncident = async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const { release_notes } = req.body;
 
-        // Start a transaction
-        const client = await pool.connect();
-        
-        try {
-            await client.query('BEGIN');
+//         const result = await pool.query(
+//             `UPDATE incidents
+//              SET incident_status = 'CLOSED',
+//                  description = CASE
+//                      WHEN $2 IS NOT NULL THEN description || '\n\nRelease Notes: ' || $2
+//                      ELSE description
+//                  END,
+//                  is_active = false,
+//                  updated_at = CURRENT_TIMESTAMP
+//              WHERE id = $1 AND is_active = true
+//              RETURNING *`,
+//             [id, release_notes || null]
+//         );
 
-            // Check if incident exists and is not already closed
-            const checkQuery = `
-                SELECT id, incident_status, incident_code 
-                FROM Incidents 
-                WHERE id = $1 AND is_active = true
-            `;
-            const checkResult = await client.query(checkQuery, [id]);
-            
-            if (checkResult.rows.length === 0) {
-                await client.query('ROLLBACK');
-                return res.status(404).json({
-                    success: false,
-                    message: 'Incident not found or already inactive'
-                });
-            }
-            
-            const incident = checkResult.rows[0];
-            
-            if (incident.incident_status === 'CLOSED') {
-                await client.query('ROLLBACK');
-                return res.status(400).json({
-                    success: false,
-                    message: 'Incident is already closed'
-                });
-            }
+//         if (result.rows.length === 0) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Incident not found'
+//             });
+//         }
 
-            // Update incident status to CLOSED
-            const updateQuery = `
-                UPDATE Incidents 
-                SET 
-                    incident_status = 'CLOSED',
-                    released_date = COALESCE($1, CURRENT_TIMESTAMP),
-                    updated_at = CURRENT_TIMESTAMP,
-                    is_active = false
-                WHERE id = $2
-                RETURNING *
-            `;
-            
-            const updateResult = await client.query(updateQuery, [
-                new Date(), // released_date
-                id
-            ]);
+//         res.status(200).json({
+//             success: true,
+//             message: 'Incident released and closed successfully',
+//             data: result.rows[0]
+//         });
+//     } catch (error) {
+//         console.error('Error releasing incident:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Internal server error while releasing incident',
+//             error: error.message
+//         });
+//     }
+// };
 
-            if (updateResult.rows[0]?.room_id) {
-                await client.query(
-                    `UPDATE rooms
-                     SET room_status = 'AVAILABLE',
-                         current_occupancy = 0,
-                         updated_at = CURRENT_TIMESTAMP
-                     WHERE id = $1`,
-                    [updateResult.rows[0].room_id]
-                );
-            }
-            
-            await client.query('COMMIT');
-            
-            res.status(200).json({
-                success: true,
-                message: 'Incident released and closed successfully',
-                data: updateResult.rows[0]
-            });
-            
-        } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error('Error releasing incident:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error while releasing incident',
-            error: error.message
-        });
-    }
-};
+// // ======================= INCIDENT REPORTING ======================
+// export const getIncidentReports = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             limit = 10,
+//             incident_status,
+//             severity_level,
+//             incident_type,
+//             from_date,
+//             to_date,
+//             search,
+//             is_active
+//         } = req.query;
 
-//======================= INCIDENT REPORTING =======================
-export const getIncidentReports = async (req, res) => {
-    try {
-        const {
-            page = 1,
-            limit = 10,
-            incident_status,
-            severity_level,
-            incident_type,
-            room_id,
-            from_date,
-            to_date,
-            search,
-            is_active // New filter parameter
-        } = req.query;
+//         const offset = (page - 1) * limit;
+//         let queryParams = [];
+//         let whereConditions = [];
+//         let paramIndex = 1;
 
-        const offset = (page - 1) * limit;
-        let queryParams = [];
-        let whereConditions = [];
-        let paramIndex = 1;
+//         if (is_active !== undefined) {
+//             whereConditions.push(`i.is_active = $${paramIndex++}`);
+//             queryParams.push(is_active === 'true' || is_active === true);
+//         }
 
-        // Apply filters - removed the 'i.is_active = true' condition
-        if (is_active !== undefined) {
-            // If is_active filter is provided, use it
-            whereConditions.push(`i.is_active = $${paramIndex++}`);
-            queryParams.push(is_active === 'true' || is_active === true);
-        }
-        // If no is_active filter, return ALL incidents (both true and false)
+//         if (incident_status) {
+//             whereConditions.push(`i.incident_status = $${paramIndex++}`);
+//             queryParams.push(incident_status);
+//         }
 
-        if (incident_status) {
-            whereConditions.push(`i.incident_status = $${paramIndex++}`);
-            queryParams.push(incident_status);
-        }
+//         if (severity_level) {
+//             whereConditions.push(`i.severity_level = $${paramIndex++}`);
+//             queryParams.push(severity_level);
+//         }
 
-        if (severity_level) {
-            whereConditions.push(`i.severity_level = $${paramIndex++}`);
-            queryParams.push(severity_level);
-        }
+//         if (incident_type) {
+//             whereConditions.push(`i.incident_type = $${paramIndex++}`);
+//             queryParams.push(incident_type);
+//         }
 
-        if (incident_type) {
-            whereConditions.push(`i.incident_type = $${paramIndex++}`);
-            queryParams.push(incident_type);
-        }
+//         if (from_date) {
+//             whereConditions.push(`DATE(i.created_at) >= $${paramIndex++}`);
+//             queryParams.push(from_date);
+//         }
 
-        if (room_id) {
-            whereConditions.push(`i.room_id = $${paramIndex++}`);
-            queryParams.push(room_id);
-        }
+//         if (to_date) {
+//             whereConditions.push(`DATE(i.created_at) <= $${paramIndex++}`);
+//             queryParams.push(to_date);
+//         }
 
-        if (from_date) {
-            whereConditions.push(`DATE(i.created_at) >= $${paramIndex++}`);
-            queryParams.push(from_date);
-        }
+//         if (search) {
+//             whereConditions.push(`(
+//                 i.incident_code ILIKE $${paramIndex++} OR
+//                 i.incident_title ILIKE $${paramIndex++} OR
+//                 i.description ILIKE $${paramIndex++} OR
+//                 i.incident_type ILIKE $${paramIndex++}
+//             )`);
+//             const searchPattern = `%${search}%`;
+//             queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+//         }
 
-        if (to_date) {
-            whereConditions.push(`DATE(i.created_at) <= $${paramIndex++}`);
-            queryParams.push(to_date);
-        }
+//         const whereClause = whereConditions.length > 0
+//             ? `WHERE ${whereConditions.join(' AND ')}`
+//             : '';
 
-        if (search) {
-            whereConditions.push(`(
-                i.incident_code ILIKE $${paramIndex++} OR
-                i.incident_title ILIKE $${paramIndex++} OR
-                i.description ILIKE $${paramIndex++} OR
-                i.incident_type ILIKE $${paramIndex++}
-            )`);
-            const searchPattern = `%${search}%`;
-            queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
-        }
+//         const countResult = await pool.query(
+//             `SELECT COUNT(*) FROM incidents i ${whereClause}`,
+//             queryParams
+//         );
+//         const total = parseInt(countResult.rows[0].count);
 
-        const whereClause = whereConditions.length > 0 
-            ? `WHERE ${whereConditions.join(' AND ')}`
-            : '';
+//         queryParams.push(limit, offset);
+//         const result = await pool.query(
+//             `SELECT
+//                 i.*,
+//                 CASE
+//                     WHEN i.reported_by IS NOT NULL THEN
+//                         jsonb_build_object(
+//                             'employee_id', e.id,
+//                             'employee_name', CONCAT(e.first_name, ' ', e.last_name),
+//                             'email', e.email,
+//                             'phone', e.contact_number
+//                         )
+//                     ELSE NULL
+//                 END as reported_by_details
+//              FROM incidents i
+//              LEFT JOIN employees e ON i.reported_by = e.id
+//              ${whereClause}
+//              ORDER BY i.created_at DESC
+//              LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+//             queryParams
+//         );
 
-        // Get total count
-        const countResult = await pool.query(
-            `SELECT COUNT(*) FROM incidents i ${whereClause}`,
-            queryParams
-        );
-        const total = parseInt(countResult.rows[0].count);
-
-        // Get paginated incidents with relations
-        queryParams.push(limit, offset);
-        const result = await pool.query(
-            `SELECT 
-                i.*,
-                jsonb_build_object(
-                    'room_id', r.id,
-                    'room_name', r.room_name,
-                    'room_code', r.room_code,
-                    'floor_id', f.id,
-                    'floor_name', f.floor_name,
-                    'block_id', b.id,
-                    'block_name', b.block_name,
-                    'terminal_id', t.id,
-                    'terminal_name', t.terminal_name
-                ) as room_details,
-                CASE 
-                    WHEN i.reported_by IS NOT NULL THEN 
-                        jsonb_build_object(
-                            'employee_id', e.id,
-                            'employee_name', CONCAT(e.first_name, ' ', e.last_name),
-                            'email', e.email,
-                            'phone', e.contact_number
-                        )
-                    ELSE NULL
-                END as reported_by_details
-            FROM incidents i
-            LEFT JOIN rooms r ON i.room_id = r.id
-            LEFT JOIN floors f ON r.floor_id = f.id
-            LEFT JOIN blocks b ON r.block_id = b.id
-            LEFT JOIN terminals t ON r.terminal_id = t.id
-            LEFT JOIN employees e ON i.reported_by = e.id
-            ${whereClause}
-            ORDER BY i.created_at DESC
-            LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
-            queryParams
-        );
-
-        res.status(200).json({
-            success: true,
-            data: result.rows,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                totalPages: Math.ceil(total / limit)
-            }
-        });
-
-    } catch (error) {
-        console.error('Error fetching incidents:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching incidents',
-            error: error.message
-        });
-    }
-};
+//         res.status(200).json({
+//             success: true,
+//             data: result.rows,
+//             pagination: {
+//                 page: parseInt(page),
+//                 limit: parseInt(limit),
+//                 total,
+//                 totalPages: Math.ceil(total / limit)
+//             }
+//         });
+//     } catch (error) {
+//         console.error('Error fetching incidents:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching incidents',
+//             error: error.message
+//         });
+//     }
+// };
