@@ -11,6 +11,7 @@ import floorsRouter from './src/routes/floors.Routes.js';
 import roomsRouter from './src/routes/rooms.Routes.js';
 import incidentsRouter from './src/routes/incidents.Routes.js';
 import incidentRoomAllocationRouter from './src/routes/incidentRoomAllocation.Routes.js';
+import incidentInvestigationRouter from './src/routes/incidentInvesigation.Routes.js';
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.use('/api/floors', floorsRouter);
 app.use('/api/rooms', roomsRouter);
 app.use('/api/incidents',incidentsRouter);
 app.use('/api/room-allocations', incidentRoomAllocationRouter);
+app.use("/api/investigations", incidentInvestigationRouter);
 // Health check route
 app.get('/api/health', (req, res) => {
     res.json({ message: 'Server is running', status: 'OK' });
