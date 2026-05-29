@@ -153,6 +153,22 @@ await client.query(`
     )
 `)
 
+//incident investigation table
+await client.query(`
+    CREATE TABLE IF NOT EXISTS Incident_Investigations (
+        id SERIAL PRIMARY KEY,
+        incident_id INT REFERENCES Incidents(id) ON DELETE CASCADE,
+        investigation_description TEXT,
+        reason_for_incident TEXT,
+        total_damage_estimate TEXT,
+        evidence_files TEXT,
+        notes TEXT,
+        investigator_id INT REFERENCES employees(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`)
+
+
         // Create function to update updated_at timestamp
         await client.query(`
             CREATE OR REPLACE FUNCTION update_updated_at_column()

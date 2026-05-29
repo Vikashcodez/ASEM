@@ -96,7 +96,7 @@ function EmployeeDashboard({ handleLogout }) {
                 },
                 {
                     id: 'incident-room-allocation',
-                    label: 'Incident Room Allocation',
+                    label: 'Room Allocation',
                     icon: (
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M3 21h18" />

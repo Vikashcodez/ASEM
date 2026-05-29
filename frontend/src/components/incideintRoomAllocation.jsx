@@ -369,7 +369,7 @@ const RoomAllocation = () => {
               }`}
             >
               <Bed className="w-4 h-4" />
-              Active Rooms
+              Active Allocations 
             </button>
             <button
               onClick={refreshAll}
