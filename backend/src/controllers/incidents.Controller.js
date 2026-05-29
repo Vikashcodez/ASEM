@@ -523,9 +523,37 @@ export const getIncidentStatistics = async (req, res) => {
 // ==================== GET INCIDENTS BY ROOM ====================
 export const getIncidentsByRoom = async (req, res) => {
     try {
-        return res.status(400).json({
-            success: false,
-            message: 'Room-based incident lookup is not supported by the current incidents schema'
+        const { room_id } = req.params;
+
+        const result = await pool.query(
+            `SELECT 
+                i.*,
+                ira.id as allocation_id,
+                ira.room_id,
+                ira.no_of_people,
+                ira.note,
+                ira.allocated_at,
+                ira.deallocated_at,
+                jsonb_build_object(
+                    'employee_id', e.id,
+                    'employee_name', CONCAT(e.first_name, ' ', e.last_name),
+                    'email', e.email,
+                    'phone', e.contact_number
+                ) as reported_by_details
+             FROM incident_room_allocations ira
+             INNER JOIN incidents i ON ira.incident_id = i.id
+             LEFT JOIN employees e ON i.reported_by = e.id
+             WHERE ira.room_id = $1
+               AND i.is_active = true
+               AND i.is_room_allocated = true
+               AND ira.deallocated_at IS NULL
+             ORDER BY ira.allocated_at DESC`,
+            [room_id]
+        );
+
+        res.status(200).json({
+            success: true,
+            data: result.rows
         });
 
     } catch (error) {
@@ -589,157 +617,45 @@ export const updateIncidentStatus = async (req, res) => {
     }
 };
 
-// ==================== RELEASE INCIDENT ====================
-// export const releaseIncident = async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const { release_notes } = req.body;
+// ==================== GET ACTIVE INCIDENT ====================
+export const getActiveIncidentsWithoutRoomAllocation = async (req, res) => {
+    try {
+        const result = await client.query(`
+            SELECT 
+                id,
+                incident_code,
+                incident_type,
+                incident_title,
+                location_details,
+                description,
+                severity_level,
+                incident_status,
+                reported_by,
+                is_active,
+                is_room_allocated,
+                created_at,
+                updated_at,
+                (
+                    SELECT name FROM employees WHERE id = incidents.reported_by
+                ) as reported_by_name
+            FROM Incidents
+            WHERE is_active = true 
+            AND is_room_allocated = false
+            ORDER BY created_at DESC
+        `);
 
-//         const result = await pool.query(
-//             `UPDATE incidents
-//              SET incident_status = 'CLOSED',
-//                  description = CASE
-//                      WHEN $2 IS NOT NULL THEN description || '\n\nRelease Notes: ' || $2
-//                      ELSE description
-//                  END,
-//                  is_active = false,
-//                  updated_at = CURRENT_TIMESTAMP
-//              WHERE id = $1 AND is_active = true
-//              RETURNING *`,
-//             [id, release_notes || null]
-//         );
+        res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching active incidents without room allocation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
 
-//         if (result.rows.length === 0) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: 'Incident not found'
-//             });
-//         }
-
-//         res.status(200).json({
-//             success: true,
-//             message: 'Incident released and closed successfully',
-//             data: result.rows[0]
-//         });
-//     } catch (error) {
-//         console.error('Error releasing incident:', error);
-//         res.status(500).json({
-//             success: false,
-//             message: 'Internal server error while releasing incident',
-//             error: error.message
-//         });
-//     }
-// };
-
-// // ======================= INCIDENT REPORTING ======================
-// export const getIncidentReports = async (req, res) => {
-//     try {
-//         const {
-//             page = 1,
-//             limit = 10,
-//             incident_status,
-//             severity_level,
-//             incident_type,
-//             from_date,
-//             to_date,
-//             search,
-//             is_active
-//         } = req.query;
-
-//         const offset = (page - 1) * limit;
-//         let queryParams = [];
-//         let whereConditions = [];
-//         let paramIndex = 1;
-
-//         if (is_active !== undefined) {
-//             whereConditions.push(`i.is_active = $${paramIndex++}`);
-//             queryParams.push(is_active === 'true' || is_active === true);
-//         }
-
-//         if (incident_status) {
-//             whereConditions.push(`i.incident_status = $${paramIndex++}`);
-//             queryParams.push(incident_status);
-//         }
-
-//         if (severity_level) {
-//             whereConditions.push(`i.severity_level = $${paramIndex++}`);
-//             queryParams.push(severity_level);
-//         }
-
-//         if (incident_type) {
-//             whereConditions.push(`i.incident_type = $${paramIndex++}`);
-//             queryParams.push(incident_type);
-//         }
-
-//         if (from_date) {
-//             whereConditions.push(`DATE(i.created_at) >= $${paramIndex++}`);
-//             queryParams.push(from_date);
-//         }
-
-//         if (to_date) {
-//             whereConditions.push(`DATE(i.created_at) <= $${paramIndex++}`);
-//             queryParams.push(to_date);
-//         }
-
-//         if (search) {
-//             whereConditions.push(`(
-//                 i.incident_code ILIKE $${paramIndex++} OR
-//                 i.incident_title ILIKE $${paramIndex++} OR
-//                 i.description ILIKE $${paramIndex++} OR
-//                 i.incident_type ILIKE $${paramIndex++}
-//             )`);
-//             const searchPattern = `%${search}%`;
-//             queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
-//         }
-
-//         const whereClause = whereConditions.length > 0
-//             ? `WHERE ${whereConditions.join(' AND ')}`
-//             : '';
-
-//         const countResult = await pool.query(
-//             `SELECT COUNT(*) FROM incidents i ${whereClause}`,
-//             queryParams
-//         );
-//         const total = parseInt(countResult.rows[0].count);
-
-//         queryParams.push(limit, offset);
-//         const result = await pool.query(
-//             `SELECT
-//                 i.*,
-//                 CASE
-//                     WHEN i.reported_by IS NOT NULL THEN
-//                         jsonb_build_object(
-//                             'employee_id', e.id,
-//                             'employee_name', CONCAT(e.first_name, ' ', e.last_name),
-//                             'email', e.email,
-//                             'phone', e.contact_number
-//                         )
-//                     ELSE NULL
-//                 END as reported_by_details
-//              FROM incidents i
-//              LEFT JOIN employees e ON i.reported_by = e.id
-//              ${whereClause}
-//              ORDER BY i.created_at DESC
-//              LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
-//             queryParams
-//         );
-
-//         res.status(200).json({
-//             success: true,
-//             data: result.rows,
-//             pagination: {
-//                 page: parseInt(page),
-//                 limit: parseInt(limit),
-//                 total,
-//                 totalPages: Math.ceil(total / limit)
-//             }
-//         });
-//     } catch (error) {
-//         console.error('Error fetching incidents:', error);
-//         res.status(500).json({
-//             success: false,
-//             message: 'Error fetching incidents',
-//             error: error.message
-//         });
-//     }
-// };
