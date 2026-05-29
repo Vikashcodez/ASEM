@@ -133,8 +133,23 @@ await client.query(`
         incident_status VARCHAR(50) DEFAULT 'OPEN',
         reported_by INT REFERENCES employees(id) ON DELETE SET NULL,
         is_active BOOLEAN DEFAULT TRUE,
+        is_room_allocated BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`)
+
+// incident room allocation table
+await client.query(`
+    CREATE TABLE IF NOT EXISTS Incident_Room_Allocations (
+        id SERIAL PRIMARY KEY,
+        incident_id INT REFERENCES Incidents(id) ON DELETE CASCADE,
+        room_id INT REFERENCES Rooms(id) ON DELETE CASCADE,
+        no_of_people INT DEFAULT 0,
+        note TEXT,
+        allocated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        allocated_by INT REFERENCES employees(id) ON DELETE SET NULL,
+        deallocated_at TIMESTAMP
     )
 `)
 
