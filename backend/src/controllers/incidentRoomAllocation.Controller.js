@@ -1,12 +1,12 @@
 // controllers/incidentRoomAllocationController.js
-import client from '../config/database.js'; // Adjust path to your database client
+import {pool} from '../config/database.js'; 
 
 // ==================== DISPLAY FUNCTIONS ====================
 
 // Get all room allocations
 export const getAllRoomAllocations = async (req, res) => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             SELECT 
                 ira.id,
                 ira.incident_id,
@@ -19,9 +19,10 @@ export const getAllRoomAllocations = async (req, res) => {
                 i.incident_code,
                 i.incident_title,
                 i.severity_level,
-                r.room_number,
+                r.room_name,
+                r.room_code,
                 r.room_type,
-                e.name as allocated_by_name
+                CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as allocated_by_name
             FROM Incident_Room_Allocations ira
             LEFT JOIN Incidents i ON ira.incident_id = i.id
             LEFT JOIN Rooms r ON ira.room_id = r.id
@@ -49,7 +50,7 @@ export const getRoomAllocationById = async (req, res) => {
     try {
         const { id } = req.params;
         
-        const result = await client.query(`
+        const result = await pool.query(`
             SELECT 
                 ira.id,
                 ira.incident_id,
@@ -64,13 +65,15 @@ export const getRoomAllocationById = async (req, res) => {
                 i.incident_type,
                 i.severity_level,
                 i.incident_status,
-                r.room_number,
+                r.room_name,
+                r.room_code,
                 r.room_type,
-                r.floor,
-                e.name as allocated_by_name
+                f.floor_name,
+                CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as allocated_by_name
             FROM Incident_Room_Allocations ira
             LEFT JOIN Incidents i ON ira.incident_id = i.id
             LEFT JOIN Rooms r ON ira.room_id = r.id
+            LEFT JOIN Floors f ON r.floor_id = f.id
             LEFT JOIN employees e ON ira.allocated_by = e.id
             WHERE ira.id = $1
         `, [id]);
@@ -101,7 +104,7 @@ export const getAllocationsByIncidentId = async (req, res) => {
     try {
         const { incidentId } = req.params;
         
-        const result = await client.query(`
+        const result = await pool.query(`
             SELECT 
                 ira.id,
                 ira.incident_id,
@@ -111,12 +114,14 @@ export const getAllocationsByIncidentId = async (req, res) => {
                 ira.allocated_at,
                 ira.allocated_by,
                 ira.deallocated_at,
-                r.room_number,
+                r.room_name,
+                r.room_code,
                 r.room_type,
-                r.floor,
-                e.name as allocated_by_name
+                f.floor_name,
+                CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as allocated_by_name
             FROM Incident_Room_Allocations ira
             LEFT JOIN Rooms r ON ira.room_id = r.id
+            LEFT JOIN Floors f ON r.floor_id = f.id
             LEFT JOIN employees e ON ira.allocated_by = e.id
             WHERE ira.incident_id = $1
             AND ira.deallocated_at IS NULL
@@ -141,7 +146,7 @@ export const getAllocationsByIncidentId = async (req, res) => {
 // Get active allocations (not deallocated)
 export const getActiveAllocations = async (req, res) => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             SELECT 
                 ira.id,
                 ira.incident_id,
@@ -154,9 +159,10 @@ export const getActiveAllocations = async (req, res) => {
                 i.incident_code,
                 i.incident_title,
                 i.severity_level,
-                r.room_number,
+                r.room_name,
+                r.room_code,
                 r.room_type,
-                e.name as allocated_by_name
+                CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as allocated_by_name
             FROM Incident_Room_Allocations ira
             LEFT JOIN Incidents i ON ira.incident_id = i.id
             LEFT JOIN Rooms r ON ira.room_id = r.id
@@ -184,6 +190,7 @@ export const getActiveAllocations = async (req, res) => {
 
 // Create new room allocation
 export const createRoomAllocation = async (req, res) => {
+    let client;
     try {
         const {
             incident_id,
@@ -193,11 +200,22 @@ export const createRoomAllocation = async (req, res) => {
             allocated_by
         } = req.body;
 
+        const normalizedPeople = parseInt(no_of_people, 10) || 0;
+
+        client = await pool.connect();
+
         // Validate required fields
         if (!incident_id || !room_id) {
             return res.status(400).json({
                 success: false,
                 message: 'incident_id and room_id are required'
+            });
+        }
+
+        if (normalizedPeople < 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'no_of_people cannot be negative'
             });
         }
 
@@ -216,7 +234,7 @@ export const createRoomAllocation = async (req, res) => {
 
         // Check if room exists and is available
         const roomCheck = await client.query(
-            'SELECT id FROM Rooms WHERE id = $1',
+            'SELECT id, max_capacity, current_occupancy, room_status, is_active FROM Rooms WHERE id = $1',
             [room_id]
         );
 
@@ -224,6 +242,25 @@ export const createRoomAllocation = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: 'Room not found'
+            });
+        }
+
+        const room = roomCheck.rows[0];
+        const maxCapacity = parseInt(room.max_capacity, 10) || 0;
+        const currentOccupancy = parseInt(room.current_occupancy, 10) || 0;
+        const nextOccupancy = currentOccupancy + normalizedPeople;
+
+        if (!room.is_active || room.room_status === 'MAINTENANCE') {
+            return res.status(400).json({
+                success: false,
+                message: 'Room is not available for allocation'
+            });
+        }
+
+        if (nextOccupancy > maxCapacity) {
+            return res.status(400).json({
+                success: false,
+                message: `Allocation exceeds room capacity. Available space: ${Math.max(maxCapacity - currentOccupancy, 0)}`
             });
         }
 
@@ -249,7 +286,21 @@ export const createRoomAllocation = async (req, res) => {
                 incident_id, room_id, no_of_people, note, allocated_by
             ) VALUES ($1, $2, $3, $4, $5)
             RETURNING *
-        `, [incident_id, room_id, no_of_people, note, allocated_by]);
+        `, [incident_id, room_id, normalizedPeople, note, allocated_by]);
+
+        const updatedRoomStatus = nextOccupancy === 0
+            ? 'AVAILABLE'
+            : nextOccupancy >= maxCapacity
+                ? 'OCCUPIED'
+                : 'PARTIALLY_OCCUPIED';
+
+        await client.query(`
+            UPDATE Rooms
+            SET current_occupancy = $1,
+                room_status = $2,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+        `, [nextOccupancy, updatedRoomStatus, room_id]);
 
         // Update incident's is_room_allocated flag
         await client.query(`
@@ -266,13 +317,19 @@ export const createRoomAllocation = async (req, res) => {
             data: result.rows[0]
         });
     } catch (error) {
-        await client.query('ROLLBACK');
+        if (client) {
+            await client.query('ROLLBACK');
+        }
         console.error('Error creating room allocation:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',
             error: error.message
         });
+    } finally {
+        if (client) {
+            client.release();
+        }
     }
 };
 
@@ -290,7 +347,7 @@ export const updateRoomAllocation = async (req, res) => {
         } = req.body;
 
         // Check if allocation exists
-        const existingAllocation = await client.query(
+        const existingAllocation = await pool.query(
             'SELECT * FROM Incident_Room_Allocations WHERE id = $1 AND deallocated_at IS NULL',
             [id]
         );
@@ -304,7 +361,7 @@ export const updateRoomAllocation = async (req, res) => {
 
         // If room is being changed, check if new room is available
         if (room_id && room_id !== existingAllocation.rows[0].room_id) {
-            const roomCheck = await client.query(
+            const roomCheck = await pool.query(
                 'SELECT id FROM Rooms WHERE id = $1',
                 [room_id]
             );
@@ -316,7 +373,7 @@ export const updateRoomAllocation = async (req, res) => {
                 });
             }
 
-            const activeAllocationCheck = await client.query(`
+            const activeAllocationCheck = await pool.query(`
                 SELECT id FROM Incident_Room_Allocations 
                 WHERE room_id = $1 AND deallocated_at IS NULL AND id != $2
             `, [room_id, id]);
@@ -366,7 +423,7 @@ export const updateRoomAllocation = async (req, res) => {
             RETURNING *
         `;
 
-        const result = await client.query(query, values);
+        const result = await pool.query(query, values);
 
         res.status(200).json({
             success: true,
@@ -385,9 +442,12 @@ export const updateRoomAllocation = async (req, res) => {
 
 // Deallocate room (soft delete)
 export const deallocateRoom = async (req, res) => {
+    let client;
     try {
         const { id } = req.params;
         const { deallocated_by } = req.body;
+
+        client = await pool.connect();
 
         // Check if allocation exists and is active
         const existingAllocation = await client.query(`
@@ -439,13 +499,19 @@ export const deallocateRoom = async (req, res) => {
             data: result.rows[0]
         });
     } catch (error) {
-        await client.query('ROLLBACK');
+        if (client) {
+            await client.query('ROLLBACK');
+        }
         console.error('Error deallocating room:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',
             error: error.message
         });
+    } finally {
+        if (client) {
+            client.release();
+        }
     }
 };
 
@@ -453,8 +519,11 @@ export const deallocateRoom = async (req, res) => {
 
 // Delete room allocation permanently
 export const deleteRoomAllocation = async (req, res) => {
+    let client;
     try {
         const { id } = req.params;
+
+        client = await pool.connect();
 
         // Check if allocation exists
         const existingAllocation = await client.query(
@@ -499,12 +568,18 @@ export const deleteRoomAllocation = async (req, res) => {
             message: 'Room allocation deleted permanently'
         });
     } catch (error) {
-        await client.query('ROLLBACK');
+        if (client) {
+            await client.query('ROLLBACK');
+        }
         console.error('Error deleting room allocation:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',
             error: error.message
         });
+    } finally {
+        if (client) {
+            client.release();
+        }
     }
 };

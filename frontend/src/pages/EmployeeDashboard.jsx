@@ -9,6 +9,7 @@ import Rooms from '../components/rooms';
 import RoomAvailability from '../components/RoomsAvaiblity';
 import IncidentDashboard from '../components/incidentDashboard';
 import IncidentManagementSystem from '../components/IncidentManagement';
+import IncidentRoomAllocation from '../components/incideintRoomAllocation';
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
@@ -90,6 +91,17 @@ function EmployeeDashboard({ handleLogout }) {
                             <path d="M12 5v14" />
                             <path d="M5 12h14" />
                             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
+                        </svg>
+                    )
+                },
+                {
+                    id: 'incident-room-allocation',
+                    label: 'Incident Room Allocation',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 21h18" />
+                            <path d="M5 21V7l7-4 7 4v14" />
+                            <path d="M9 21v-6h6v6" />
                         </svg>
                     )
                 }
@@ -551,7 +563,8 @@ function EmployeeDashboard({ handleLogout }) {
                                  activeTab === 'rooms' ? 'Rooms' :
                                  activeTab === 'room-availability' ? 'Room Availability' :
                                  activeTab === 'incident-reports' ? 'Incident Reports' :
-                                 activeTab === 'add-incidents' ? 'Add Incidents' : 'Dashboard'}
+                                 activeTab === 'add-incidents' ? 'Add Incidents' :
+                                 activeTab === 'incident-room-allocation' ? 'Incident Room Allocation' : 'Dashboard'}
                             </h2>
                             <p className="text-xs text-gray-400 mt-0.5 hidden sm:block">
                                 {activeTab === 'profile' ? 'View your personal information and details' :
@@ -561,7 +574,8 @@ function EmployeeDashboard({ handleLogout }) {
                                  activeTab === 'rooms' ? 'Manage rooms' :
                                  activeTab === 'room-availability' ? 'Check room availability' :
                                  activeTab === 'incident-reports' ? 'View incident reports' :
-                                 activeTab === 'add-incidents' ? 'Report new incidents' : ''}
+                                 activeTab === 'add-incidents' ? 'Report new incidents' :
+                                 activeTab === 'incident-room-allocation' ? 'Allocate rooms for active incidents' : ''}
                             </p>
                         </div>
                     </div>
@@ -599,7 +613,10 @@ function EmployeeDashboard({ handleLogout }) {
                         <IncidentDashboard />
                     ) : activeTab === 'add-incidents' ? (
                         <IncidentManagementSystem />
+                    ) : activeTab === 'incident-room-allocation' ? (
+                        <IncidentRoomAllocation />
                     ) : null}
+                    
                 </div>
             </main>
         </div>
