@@ -84,18 +84,7 @@ function EmployeeDashboard({ handleLogout }) {
                         </svg>
                     )
                 },
-                {
-                    id: 'incident-investigations',
-                    label: 'Investigations',
-                    icon: (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2v4" />
-                            <path d="M6 6h12v12H6z" />
-                            <path d="M9 10h6" />
-                        </svg>
-                    )
-                },
-                {
+                 {
                     id: 'add-incidents',
                     label: 'Add Incidents',
                     icon: (
@@ -106,7 +95,7 @@ function EmployeeDashboard({ handleLogout }) {
                         </svg>
                     )
                 },
-                {
+                 {
                     id: 'incident-room-allocation',
                     label: 'Room Allocation',
                     icon: (
@@ -116,7 +105,20 @@ function EmployeeDashboard({ handleLogout }) {
                             <path d="M9 21v-6h6v6" />
                         </svg>
                     )
-                }
+                },
+                {
+                    id: 'incident-investigations',
+                    label: 'Incident Closure',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2v4" />
+                            <path d="M6 6h12v12H6z" />
+                            <path d="M9 10h6" />
+                        </svg>
+                    )
+                },
+               
+               
             ]
         },
         {
