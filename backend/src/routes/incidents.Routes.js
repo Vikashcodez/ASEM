@@ -20,6 +20,7 @@ const incidentsRouter = express.Router();
 // Incident CRUD routes
 incidentsRouter.post('/', createIncident);
 incidentsRouter.get('/', getAllIncidents);
+incidentsRouter.get('/reports', getAllIncidents);
 incidentsRouter.get('/active', getActiveIncidentsWithoutRoomAllocation);
 incidentsRouter.get('/active/with-room-allocation', getActiveIncidentsWithRoomAllocation);
 // incidentsRouter.get('/reports', getIncidentReports);

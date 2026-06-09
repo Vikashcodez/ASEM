@@ -208,6 +208,13 @@ export const getIncidentById = async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (!/^\d+$/.test(String(id))) {
+            return res.status(400).json({
+                success: false,
+                message: 'Incident id must be a numeric value'
+            });
+        }
+
         const incident = await getIncidentWithRelations(id);
 
         if (!incident) {
