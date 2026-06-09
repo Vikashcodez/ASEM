@@ -11,6 +11,7 @@ import IncidentDashboard from '../components/incidentDashboard';
 import IncidentManagementSystem from '../components/IncidentManagement';
 import IncidentRoomAllocation from '../components/incideintRoomAllocation';
 import IncidentsInvestigation from '../components/incidentInvestigation';
+import PostIncidentReviewForm from '../components/RCA'
 
 function EmployeeDashboard({ handleLogout }) {
     const [profile, setProfile] = useState(null);
@@ -114,6 +115,18 @@ function EmployeeDashboard({ handleLogout }) {
                             <path d="M12 2v4" />
                             <path d="M6 6h12v12H6z" />
                             <path d="M9 10h6" />
+                        </svg>
+                    )
+                },
+
+                 {
+                    id: 'post-incidents-review',
+                    label: 'POST Incidents Review',
+                    icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
                         </svg>
                     )
                 },
@@ -579,6 +592,7 @@ function EmployeeDashboard({ handleLogout }) {
                                  activeTab === 'incident-reports' ? 'Incident Reports' :
                                  activeTab === 'add-incidents' ? 'Add Incidents' :
                                  activeTab === 'incident-investigations' ? 'Investigations' :
+                                 activeTab === 'post-incidents-review' ? 'Post Incidents Review' :
                                  activeTab === 'incident-room-allocation' ? 'Incident Room Allocation' : 'Dashboard'}
                             </h2>
                             <p className="text-xs text-gray-400 mt-0.5 hidden sm:block">
@@ -591,6 +605,7 @@ function EmployeeDashboard({ handleLogout }) {
                                  activeTab === 'incident-reports' ? 'View incident reports' :
                                  activeTab === 'add-incidents' ? 'Report new incidents' :
                                  activeTab === 'incident-investigations' ? 'View incident investigations' :
+                                 activeTab === 'post-incidents-review' ? 'Review post-incident reports' :
                                  activeTab === 'incident-room-allocation' ? 'Allocate rooms for active incidents' : ''}
                             </p>
                         </div>
@@ -633,6 +648,8 @@ function EmployeeDashboard({ handleLogout }) {
                         <IncidentsInvestigation />
                     ) : activeTab === 'incident-room-allocation' ? (
                         <IncidentRoomAllocation />
+                    ) : activeTab === 'post-incidents-review' ? (
+                        <PostIncidentReviewForm />
                     ) : null}
                     
                 </div>
